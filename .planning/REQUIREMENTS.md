@@ -7,7 +7,7 @@
 
 ## v1 Requirements (v0.1 release)
 
-### Foundation (FND) — Phase 1
+### Foundation (FND) — Phase 2
 
 - [ ] **FND-01**: Schema PG do ledger criado via migration Drizzle: `accounts(id, type, metadata jsonb, owner_ref, created_at)` com `type IN (asset, liability, revenue, expense, equity)`
 - [ ] **FND-02**: Migration `transactions(id, idempotency_key UNIQUE NOT NULL, ts, description, source, metadata jsonb)` — reservar `metadata` desde v0.1
@@ -41,7 +41,7 @@
 - [ ] **INF-09**: Changesets configurado com `updateInternalDependencies: patch`, sem `linked`, para versionamento independente por pacote
 - [ ] **INF-10**: CI bloqueia PR sem changeset quando há mudanças em pacote publicável
 
-### Core Ledger API (API) — Phase 2
+### Core Ledger API (API) — Phase 3
 
 - [ ] **API-01**: Fastify 5+ configurado com `coerceTypes: false`, JSON Schema validation, `@fastify/swagger`
 - [ ] **API-02**: Serializer custom de BigInt → JSON string em todas as respostas (`amount_cents`, IDs); `JSON.stringify(bigint)` nunca permitido cru
@@ -57,7 +57,7 @@
 - [ ] **API-12**: `GET /health` (liveness + readiness, inclui check de PG)
 - [ ] **API-13**: OpenAPI spec gerado automaticamente, com `amount_cents` documentado como JSON string
 
-### Balance Worker (BAL) — Phase 3
+### Balance Worker (BAL) — Phase 4
 
 - [ ] **BAL-01**: pg-boss 12.18+ startup + graceful shutdown integrado ao processo worker
 - [ ] **BAL-02**: Queue `balance-update` definida via `createQueue()` com config de retention
@@ -68,7 +68,7 @@
 - [ ] **BAL-07**: Job pg-boss diário recalcula saldo do zero, compara com `account_balance`, alerta em divergência
 - [ ] **BAL-08**: Métrica Prometheus `aprumo_balance_worker_lag_seconds`, `aprumo_balance_worker_processed_total`
 
-### Connector Interface (CNB) — Phase 4
+### Connector Interface (CNB) — Phase 5
 
 - [ ] **CNB-01**: `@aprumo/connector-base` zero-dep, exporta interface `LedgerConnector` com 6 métodos: `createPayment`, `getPayment`, `refundPayment`, `getBalance`, `withdraw`, `parseWebhook`
 - [ ] **CNB-02**: Tipos canônicos exportados: `PaymentRef`, `Money` (branded bigint), `NormalizedEvent`, `WithdrawalRef`, `RefundRef`, `RawWebhook`
@@ -78,7 +78,7 @@
 - [ ] **CNB-06**: CI valida que `@aprumo/core` NÃO importa `@aprumo/connector-*` (graph check via `pnpm why`)
 - [ ] **CNB-07**: Docs: `docs/connectors.md` com guia "como implementar um conector" + exemplo FakeConnector
 
-### Starkbank Connector (SBC) — Phase 4
+### Starkbank Connector (SBC) — Phase 6
 
 - [ ] **SBC-01**: `@aprumo/connector-starkbank` usa SDK oficial `starkbank` 2.40+ como peer dep
 - [ ] **SBC-02**: `createPayment` suporta PIX, boleto, cartão (via token gateway, sem armazenar PAN)
@@ -92,7 +92,7 @@
 - [ ] **SBC-10**: Suite de contract tests do connector-base verde
 - [ ] **SBC-11**: Spike documentado: taxonomia de eventos Starkbank (PIX, boleto, cartão, transfer, devolução) com payloads reais do sandbox em `docs/connectors/starkbank-events.md`
 
-### Webhooks Inbound (WHI) — Phase 5
+### Webhooks Inbound (WHI) — Phase 7
 
 - [ ] **WHI-01**: `POST /webhooks/:provider` endpoint genérico em `@aprumo/webhooks`
 - [ ] **WHI-02**: Connector registry (lookup por provider name) inicializado em boot
@@ -106,7 +106,7 @@
 - [ ] **WHI-10**: Teste de crash-injection: kill -9 entre INSERT e enqueue → recovery não duplica nem perde evento (provado em CI)
 - [ ] **WHI-11**: Teste E2E: webhook Starkbank assinado (sandbox) → posting aplicado → saldo atualizado
 
-### Webhooks Outbound (WHO) — Phase 6
+### Webhooks Outbound (WHO) — Phase 8
 
 - [ ] **WHO-01**: Schema `outbound_endpoints(id, customer_id, url, secret, active, event_types[], created_at)` + `outbound_endpoints_audit`
 - [ ] **WHO-02**: Schema `outbound_events(id, endpoint_id, type, payload_jsonb, status, attempts, last_error, next_attempt_at, created_at)`
@@ -120,7 +120,7 @@
 - [ ] **WHO-10**: Schema validation de outbound payload (sem PII; só campos canônicos)
 - [ ] **WHO-11**: Teste E2E: ledger posting → outbound event enfileirado → POST recebido pelo cliente com assinatura HMAC válida
 
-### Observability & Compliance (OBS) — Phase 7
+### Observability & Compliance (OBS) — Phase 9
 
 - [ ] **OBS-01**: pino redact configurado globalmente: CPF, nome, email, RG, tokens, secrets, raw payload, headers de autorização
 - [ ] **OBS-02**: Métricas Prometheus expostas em `/metrics`: latência por endpoint, lag de balance worker, fila pg-boss (jobs pending/active/failed/dead), outbound webhook (sent/failed/dead)
@@ -128,7 +128,7 @@
 - [ ] **OBS-04**: Trace context (W3C traceparent) propagado entre HTTP e worker
 - [ ] **OBS-05**: Política de retenção documentada em `docs/lgpd.md` (retenção de logs, basis legal, processo de export)
 
-### Documentation & Release (DOC) — Phase 7
+### Documentation & Release (DOC) — Phase 9
 
 - [ ] **DOC-01**: README com badge "pre-alpha", quickstart (`docker-compose up`, primeiro `POST /transactions`)
 - [ ] **DOC-02**: Documentação da API via Swagger UI publicado e link no README
@@ -183,17 +183,120 @@
 
 ## Traceability
 
-Mapped during roadmap creation (Phase 8 do workflow GSD). Esta seção é preenchida pelo `gsd-roadmapper`.
+Mapped by gsd-roadmapper on 2026-05-18. All 104 v1 requirements mapped to phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (preenchido pelo roadmapper) | | Pending |
+| INF-01 | Phase 1 | Pending |
+| INF-02 | Phase 1 | Pending |
+| INF-03 | Phase 1 | Pending |
+| INF-04 | Phase 1 | Pending |
+| INF-05 | Phase 1 | Pending |
+| INF-06 | Phase 1 | Pending |
+| INF-07 | Phase 1 | Pending |
+| INF-08 | Phase 1 | Pending |
+| INF-09 | Phase 1 | Pending |
+| INF-10 | Phase 1 | Pending |
+| FND-01 | Phase 2 | Pending |
+| FND-02 | Phase 2 | Pending |
+| FND-03 | Phase 2 | Pending |
+| FND-04 | Phase 2 | Pending |
+| FND-05 | Phase 2 | Pending |
+| FND-06 | Phase 2 | Pending |
+| FND-07 | Phase 2 | Pending |
+| FND-08 | Phase 2 | Pending |
+| FND-09 | Phase 2 | Pending |
+| FND-10 | Phase 2 | Pending |
+| FND-11 | Phase 2 | Pending |
+| FND-12 | Phase 2 | Pending |
+| FND-13 | Phase 2 | Pending |
+| FND-14 | Phase 2 | Pending |
+| FND-15 | Phase 2 | Pending |
+| FND-16 | Phase 2 | Pending |
+| FND-17 | Phase 2 | Pending |
+| FND-18 | Phase 2 | Pending |
+| API-01 | Phase 3 | Pending |
+| API-02 | Phase 3 | Pending |
+| API-03 | Phase 3 | Pending |
+| API-04 | Phase 3 | Pending |
+| API-05 | Phase 3 | Pending |
+| API-06 | Phase 3 | Pending |
+| API-07 | Phase 3 | Pending |
+| API-08 | Phase 3 | Pending |
+| API-09 | Phase 3 | Pending |
+| API-10 | Phase 3 | Pending |
+| API-11 | Phase 3 | Pending |
+| API-12 | Phase 3 | Pending |
+| API-13 | Phase 3 | Pending |
+| BAL-01 | Phase 4 | Pending |
+| BAL-02 | Phase 4 | Pending |
+| BAL-03 | Phase 4 | Pending |
+| BAL-04 | Phase 4 | Pending |
+| BAL-05 | Phase 4 | Pending |
+| BAL-06 | Phase 4 | Pending |
+| BAL-07 | Phase 4 | Pending |
+| BAL-08 | Phase 4 | Pending |
+| CNB-01 | Phase 5 | Pending |
+| CNB-02 | Phase 5 | Pending |
+| CNB-03 | Phase 5 | Pending |
+| CNB-04 | Phase 5 | Pending |
+| CNB-05 | Phase 5 | Pending |
+| CNB-06 | Phase 5 | Pending |
+| CNB-07 | Phase 5 | Pending |
+| SBC-01 | Phase 6 | Pending |
+| SBC-02 | Phase 6 | Pending |
+| SBC-03 | Phase 6 | Pending |
+| SBC-04 | Phase 6 | Pending |
+| SBC-05 | Phase 6 | Pending |
+| SBC-06 | Phase 6 | Pending |
+| SBC-07 | Phase 6 | Pending |
+| SBC-08 | Phase 6 | Pending |
+| SBC-09 | Phase 6 | Pending |
+| SBC-10 | Phase 6 | Pending |
+| SBC-11 | Phase 6 | Pending |
+| WHI-01 | Phase 7 | Pending |
+| WHI-02 | Phase 7 | Pending |
+| WHI-03 | Phase 7 | Pending |
+| WHI-04 | Phase 7 | Pending |
+| WHI-05 | Phase 7 | Pending |
+| WHI-06 | Phase 7 | Pending |
+| WHI-07 | Phase 7 | Pending |
+| WHI-08 | Phase 7 | Pending |
+| WHI-09 | Phase 7 | Pending |
+| WHI-10 | Phase 7 | Pending |
+| WHI-11 | Phase 7 | Pending |
+| WHO-01 | Phase 8 | Pending |
+| WHO-02 | Phase 8 | Pending |
+| WHO-03 | Phase 8 | Pending |
+| WHO-04 | Phase 8 | Pending |
+| WHO-05 | Phase 8 | Pending |
+| WHO-06 | Phase 8 | Pending |
+| WHO-07 | Phase 8 | Pending |
+| WHO-08 | Phase 8 | Pending |
+| WHO-09 | Phase 8 | Pending |
+| WHO-10 | Phase 8 | Pending |
+| WHO-11 | Phase 8 | Pending |
+| OBS-01 | Phase 9 | Pending |
+| OBS-02 | Phase 9 | Pending |
+| OBS-03 | Phase 9 | Pending |
+| OBS-04 | Phase 9 | Pending |
+| OBS-05 | Phase 9 | Pending |
+| DOC-01 | Phase 9 | Pending |
+| DOC-02 | Phase 9 | Pending |
+| DOC-03 | Phase 9 | Pending |
+| DOC-04 | Phase 9 | Pending |
+| DOC-05 | Phase 9 | Pending |
+| DOC-06 | Phase 9 | Pending |
+| DOC-07 | Phase 9 | Pending |
+| DOC-08 | Phase 9 | Pending |
+| DOC-09 | Phase 9 | Pending |
+| DOC-10 | Phase 9 | Pending |
 
 **Coverage:**
 - v1 requirements: 104 total (FND:18, INF:10, API:13, BAL:8, CNB:7, SBC:11, WHI:11, WHO:11, OBS:5, DOC:10)
-- Mapped to phases: TBD pelo roadmapper
-- Unmapped: TBD ⚠️
+- Mapped to phases: 104/104 (100%) ✓
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-05-18*
-*Last updated: 2026-05-18 after initial definition*
+*Last updated: 2026-05-18 — traceability populated by gsd-roadmapper*
