@@ -34,7 +34,15 @@ Security and tooling discipline come first (Phase 1) because the repo is public 
   3. `.gitignore` covers `.env*`, `*.key`, `*.pem`, `secrets/`, build artifacts — verified by asserting those files are untracked after `touch`
   4. GitHub Actions runs lint + typecheck + build + test + coverage gate jobs; PR without changeset in a publishable package fails CI (INF-10 enforced)
   5. Changesets is configured; `pnpm changeset` works and produces a valid changeset file
-**Plans**: TBD
+**Plans**: 7 plans
+Plans:
+- [ ] 01-00-PLAN.md — Wave 0 TDD RED scaffolds: vitest.config.ts + CI gate tests for INF-01..10
+- [ ] 01-01-PLAN.md — Monorepo skeleton: pnpm workspace, tsconfig.base.json, biome.json, .gitignore, .nvmrc, .npmrc, LICENSE, renovate.json
+- [ ] 01-02-PLAN.md — Package stubs: all 4 @aprumo/* packages with package.json, tsconfig, vitest.config.ts, src/index.ts; docs/adr/.gitkeep
+- [ ] 01-03-PLAN.md — Pre-commit security: lefthook.yml, .gitleaks.toml, commitlint.config.ts
+- [ ] 01-04-PLAN.md — GitHub Actions CI: composite setup action, ci.yml (7 jobs), release.yml, issue/PR templates
+- [ ] 01-05-PLAN.md — Changesets config: .changeset/config.json, changeset-required script
+- [ ] 01-06-PLAN.md — OSS governance: README.md, SECURITY.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md + branch protection checkpoint
 **UI hint**: no
 
 ### Phase 2: Schema Foundation + DB Tooling
@@ -147,7 +155,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Monorepo Scaffold + CI + Dev Security | 0/TBD | Not started | - |
+| 1. Monorepo Scaffold + CI + Dev Security | 0/7 | Planning done | - |
 | 2. Schema Foundation + DB Tooling | 0/TBD | Not started | - |
 | 3. Core Ledger API | 0/TBD | Not started | - |
 | 4. Balance Worker + Reconciliation | 0/TBD | Not started | - |
