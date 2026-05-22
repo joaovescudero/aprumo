@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+
+# Coverage
+coverage/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Secrets and keys
+*.key
+*.pem
+secrets/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# OS generated files
+.DS_Store
+
+# Turborepo (deferred — included for future use)
+.turbo/
