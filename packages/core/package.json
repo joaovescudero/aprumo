@@ -13,7 +13,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "migrations"
   ],
   "publishConfig": {
     "registry": "https://npm.pkg.github.com",
@@ -23,6 +24,22 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "lint": "biome check src/"
+    "lint": "biome check src/",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:reset": "tsx src/db/reset.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:seed": "tsx migrations/0006_seed_dev.ts"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "@testcontainers/postgresql": "^12.0.0",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
+    "pg": "^8.21.0",
+    "testcontainers": "^12.0.0",
+    "tsx": "^4.22.3"
   }
 }
