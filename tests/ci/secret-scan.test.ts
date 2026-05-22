@@ -7,10 +7,11 @@
  * Threat: T-1-01 (test fixtures use dummy PEM headers, NOT real keys)
  * No imports from @aprumo/* packages.
  */
+
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { spawnSync } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "../..");
@@ -48,7 +49,7 @@ describe("INF-06: Secret scanning (gitleaks)", () => {
   it("gitleaks binary is available on PATH", () => {
     expect(
       gitleaksAvailable,
-      'gitleaks binary must be available on PATH. Install with: brew install gitleaks\nThis test is RED until gitleaks is installed.',
+      "gitleaks binary must be available on PATH. Install with: brew install gitleaks\nThis test is RED until gitleaks is installed.",
     ).toBe(true);
   });
 
@@ -75,9 +76,7 @@ describe("INF-06: Secret scanning (gitleaks)", () => {
 
     // Use gitleaks detect against the fixture directory (avoids git staging)
     const gitleaksToml = path.join(REPO_ROOT, ".gitleaks.toml");
-    const configArgs = fs.existsSync(gitleaksToml)
-      ? ["--config", gitleaksToml]
-      : [];
+    const configArgs = fs.existsSync(gitleaksToml) ? ["--config", gitleaksToml] : [];
 
     const result = spawnSync(
       "gitleaks",
@@ -106,9 +105,7 @@ describe("INF-06: Secret scanning (gitleaks)", () => {
     fs.writeFileSync(fixtureFile, `${SECRET_FIXTURE}\n`, "utf8");
 
     const gitleaksToml = path.join(REPO_ROOT, ".gitleaks.toml");
-    const configArgs = fs.existsSync(gitleaksToml)
-      ? ["--config", gitleaksToml]
-      : [];
+    const configArgs = fs.existsSync(gitleaksToml) ? ["--config", gitleaksToml] : [];
 
     const result = spawnSync(
       "gitleaks",

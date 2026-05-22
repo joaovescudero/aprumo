@@ -30,18 +30,16 @@ describe("INF-01..05: Monorepo scaffold", () => {
       const pkgPath = path.join(REPO_ROOT, "package.json");
       expect(fs.existsSync(pkgPath), "package.json must exist").toBe(true);
       const pkg = readJson(pkgPath) as Record<string, unknown>;
-      expect(typeof pkg["packageManager"]).toBe("string");
-      expect((pkg["packageManager"] as string).startsWith("pnpm@10")).toBe(
-        true,
-      );
+      expect(typeof pkg.packageManager).toBe("string");
+      expect((pkg.packageManager as string).startsWith("pnpm@10")).toBe(true);
     });
 
     it('root package.json has engines.node = ">=22"', () => {
       const pkgPath = path.join(REPO_ROOT, "package.json");
       const pkg = readJson(pkgPath) as Record<string, unknown>;
-      const engines = pkg["engines"] as Record<string, unknown> | undefined;
+      const engines = pkg.engines as Record<string, unknown> | undefined;
       expect(engines).toBeDefined();
-      expect(engines?.["node"]).toBe(">=22");
+      expect(engines?.node).toBe(">=22");
     });
   });
 
@@ -56,57 +54,45 @@ describe("INF-01..05: Monorepo scaffold", () => {
     it('tsconfig.base.json contains "strict": true', () => {
       const configPath = path.join(REPO_ROOT, "tsconfig.base.json");
       const config = readJson(configPath) as Record<string, unknown>;
-      const compilerOptions = config["compilerOptions"] as
-        | Record<string, unknown>
-        | undefined;
-      expect(compilerOptions?.["strict"]).toBe(true);
+      const compilerOptions = config.compilerOptions as Record<string, unknown> | undefined;
+      expect(compilerOptions?.strict).toBe(true);
     });
 
     it('tsconfig.base.json contains "noUncheckedIndexedAccess": true', () => {
       const configPath = path.join(REPO_ROOT, "tsconfig.base.json");
       const config = readJson(configPath) as Record<string, unknown>;
-      const compilerOptions = config["compilerOptions"] as
-        | Record<string, unknown>
-        | undefined;
-      expect(compilerOptions?.["noUncheckedIndexedAccess"]).toBe(true);
+      const compilerOptions = config.compilerOptions as Record<string, unknown> | undefined;
+      expect(compilerOptions?.noUncheckedIndexedAccess).toBe(true);
     });
 
     it('tsconfig.base.json contains "module": "NodeNext"', () => {
       const configPath = path.join(REPO_ROOT, "tsconfig.base.json");
       const config = readJson(configPath) as Record<string, unknown>;
-      const compilerOptions = config["compilerOptions"] as
-        | Record<string, unknown>
-        | undefined;
-      expect(compilerOptions?.["module"]).toBe("NodeNext");
+      const compilerOptions = config.compilerOptions as Record<string, unknown> | undefined;
+      expect(compilerOptions?.module).toBe("NodeNext");
     });
   });
 
   describe("INF-03: Biome lint config", () => {
     it("biome.json exists at repo root", () => {
-      expect(
-        fs.existsSync(path.join(REPO_ROOT, "biome.json")),
-        "biome.json must exist",
-      ).toBe(true);
+      expect(fs.existsSync(path.join(REPO_ROOT, "biome.json")), "biome.json must exist").toBe(true);
     });
 
     it('biome.json contains "noExplicitAny": "error" (nested in linter.rules)', () => {
       const configPath = path.join(REPO_ROOT, "biome.json");
       const config = readJson(configPath) as Record<string, unknown>;
-      const linter = config["linter"] as Record<string, unknown> | undefined;
-      const rules = linter?.["rules"] as Record<string, unknown> | undefined;
-      const suspicious = rules?.["suspicious"] as
-        | Record<string, unknown>
-        | undefined;
-      expect(suspicious?.["noExplicitAny"]).toBe("error");
+      const linter = config.linter as Record<string, unknown> | undefined;
+      const rules = linter?.rules as Record<string, unknown> | undefined;
+      const suspicious = rules?.suspicious as Record<string, unknown> | undefined;
+      expect(suspicious?.noExplicitAny).toBe("error");
     });
   });
 
   describe("INF-01: Node version pinning", () => {
     it(".nvmrc exists at repo root", () => {
-      expect(
-        fs.existsSync(path.join(REPO_ROOT, ".nvmrc")),
-        ".nvmrc must exist at repo root",
-      ).toBe(true);
+      expect(fs.existsSync(path.join(REPO_ROOT, ".nvmrc")), ".nvmrc must exist at repo root").toBe(
+        true,
+      );
     });
 
     it('.npmrc exists and contains "engine-strict=true"', () => {
@@ -127,18 +113,14 @@ describe("INF-01..05: Monorepo scaffold", () => {
 
     it("packages/connector-base/src/index.ts exists", () => {
       expect(
-        fs.existsSync(
-          path.join(REPO_ROOT, "packages/connector-base/src/index.ts"),
-        ),
+        fs.existsSync(path.join(REPO_ROOT, "packages/connector-base/src/index.ts")),
         "packages/connector-base/src/index.ts must exist",
       ).toBe(true);
     });
 
     it("packages/connector-starkbank/src/index.ts exists", () => {
       expect(
-        fs.existsSync(
-          path.join(REPO_ROOT, "packages/connector-starkbank/src/index.ts"),
-        ),
+        fs.existsSync(path.join(REPO_ROOT, "packages/connector-starkbank/src/index.ts")),
         "packages/connector-starkbank/src/index.ts must exist",
       ).toBe(true);
     });
