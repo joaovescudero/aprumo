@@ -43,6 +43,13 @@
       "when": 1779485310660,
       "tag": "0005_double_entry_trigger",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779485643554,
+      "tag": "0006_seed_dev",
+      "breakpoints": true
     }
   ]
 }
