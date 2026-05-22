@@ -23,7 +23,7 @@
 - [x] **FND-12**: Docker-compose dev: Postgres 16+, com env-vars de roles, autovacuum tuning para pg-boss
 - [x] **FND-13**: `pnpm db:reset` destrói e recria DB local; `pnpm db:migrate` aplica migrations
 - [x] **FND-14**: Seed mínimo dev (1 customer, 2 contas, 1 transaction de exemplo) via `post_transaction` (nunca INSERT direto)
-- [ ] **FND-15**: Drizzle migration hash check em CI (falha em migração editada após commit)
+- [x] **FND-15**: Drizzle migration hash check em CI (falha em migração editada após commit)
 - [x] **FND-16**: Testcontainers globalSetup com container Postgres compartilhado + isolamento por schema por arquivo de teste
 - [x] **FND-17**: ADR-009 (Drizzle ratificado) escrita em `docs/adr/`
 - [x] **FND-18**: ADRs 001–008 portadas para `docs/adr/` em formato MADR
@@ -211,7 +211,7 @@ Mapped by gsd-roadmapper on 2026-05-18. All 104 v1 requirements mapped to phases
 | FND-12 | Phase 2 | Complete |
 | FND-13 | Phase 2 | Complete |
 | FND-14 | Phase 2 | Complete |
-| FND-15 | Phase 2 | Pending |
+| FND-15 | Phase 2 | Complete |
 | FND-16 | Phase 2 | Complete |
 | FND-17 | Phase 2 | Complete |
 | FND-18 | Phase 2 | Complete |
