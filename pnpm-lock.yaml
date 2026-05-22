@@ -1,7 +1,7 @@
 lockfileVersion: '9.0'
 
 settings:
-  autoInstallPeers: true
+  autoInstallPeers: false
   excludeLinksFromLockfile: false
 
 importers:
@@ -31,7 +31,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: 4.1.7
-        version: 4.1.7(@types/node@12.20.55)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@12.20.55)(jiti@2.6.1))
+        version: 4.1.7(@types/node@12.20.55)(@vitest/coverage-v8@4.1.7)(jiti@2.6.1)
 
 packages:
 
@@ -1224,7 +1224,6 @@ packages:
       '@vitest/ui': 4.1.7
       happy-dom: '*'
       jsdom: '*'
-      vite: ^6.0.0 || ^7.0.0 || ^8.0.0
     peerDependenciesMeta:
       '@edge-runtime/vm':
         optional: true
@@ -1750,7 +1749,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.7(@types/node@12.20.55)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@12.20.55)(jiti@2.6.1))
+      vitest: 4.1.7(@types/node@12.20.55)(@vitest/coverage-v8@4.1.7)(jiti@2.6.1)
 
   '@vitest/expect@4.1.7':
     dependencies:
@@ -2396,7 +2395,7 @@ snapshots:
       fsevents: 2.3.3
       jiti: 2.6.1
 
-  vitest@4.1.7(@types/node@12.20.55)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@12.20.55)(jiti@2.6.1)):
+  vitest@4.1.7(@types/node@12.20.55)(@vitest/coverage-v8@4.1.7)(jiti@2.6.1):
     dependencies:
       '@vitest/expect': 4.1.7
       '@vitest/mocker': 4.1.7(vite@8.0.14(@types/node@12.20.55)(jiti@2.6.1))
@@ -2422,7 +2421,18 @@ snapshots:
       '@types/node': 12.20.55
       '@vitest/coverage-v8': 4.1.7(vitest@4.1.7)
     transitivePeerDependencies:
+      - '@vitejs/devtools'
+      - esbuild
+      - jiti
+      - less
       - msw
+      - sass
+      - sass-embedded
+      - stylus
+      - sugarss
+      - terser
+      - tsx
+      - yaml
 
   which@2.0.2:
     dependencies:
