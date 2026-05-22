@@ -25,4 +25,7 @@ description = "Global allowlist — prevent self-detection"
 paths = [
   '''\.gitleaks\.toml''',
   '''docs/adr/''',
+  # Planning artifacts (REVIEW.md, SUMMARY.md, PLAN.md, CONTEXT.md, RESEARCH.md, VERIFICATION.md, UAT.md, SECURITY.md)
+  # may quote rule patterns or PEM headers verbatim for documentation. These are not real secrets.
+  '''\.planning/.*\.md$''',
 ]
