@@ -14,7 +14,7 @@
     "typecheck": "tsc -b packages/*/tsconfig.json --noEmit",
     "lint": "biome check .",
     "changeset": "changeset",
-    "changeset:check": "changeset status --since=main",
+    "changeset:check": "bash scripts/changeset-required.sh",
     "db:migrate": "echo 'placeholder — implemented in Phase 2' && exit 0",
     "prepare": "lefthook install"
   },
