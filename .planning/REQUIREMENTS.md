@@ -34,8 +34,8 @@
 - [ ] **INF-02**: `tsconfig.base.json` com `strict: true`, `noUncheckedIndexedAccess: true`, target Node 22+
 - [ ] **INF-03**: Biome configurado para lint + format em todos os pacotes (Biome 2.4+)
 - [ ] **INF-04**: Vitest configurado com coverage v8, gate 90% LoC em `@aprumo/core`, 80% nos demais
-- [ ] **INF-05**: `commitlint` + Conventional Commits em pre-commit hook
-- [ ] **INF-06**: Pre-commit secret scanning (lefthook + detect-secrets ou equivalente) — bloqueia commit de chaves ECDSA/HMAC
+- [x] **INF-05**: `commitlint` + Conventional Commits em pre-commit hook
+- [x] **INF-06**: Pre-commit secret scanning (lefthook + detect-secrets ou equivalente) — bloqueia commit de chaves ECDSA/HMAC
 - [ ] **INF-07**: `.gitignore` cobre `.env*`, `*.key`, `secrets/`, build artifacts
 - [ ] **INF-08**: GitHub Actions: matriz Node 22/24, jobs lint+typecheck+test+coverage gate+contract tests+build
 - [ ] **INF-09**: Changesets configurado com `updateInternalDependencies: patch`, sem `linked`, para versionamento independente por pacote
@@ -191,8 +191,8 @@ Mapped by gsd-roadmapper on 2026-05-18. All 104 v1 requirements mapped to phases
 | INF-02 | Phase 1 | Pending |
 | INF-03 | Phase 1 | Pending |
 | INF-04 | Phase 1 | Pending |
-| INF-05 | Phase 1 | Pending |
-| INF-06 | Phase 1 | Pending |
+| INF-05 | Phase 1 | Complete |
+| INF-06 | Phase 1 | Complete |
 | INF-07 | Phase 1 | Pending |
 | INF-08 | Phase 1 | Pending |
 | INF-09 | Phase 1 | Pending |

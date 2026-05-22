@@ -42,13 +42,13 @@ Security and tooling discipline come first (Phase 1) because the repo is public 
 Plans:
 **Wave 1**
 
-- [ ] 01-00-PLAN.md — Wave 0 TDD RED scaffolds: vitest.config.ts + CI gate tests for INF-01..10
+- [x] 01-00-PLAN.md — Wave 0 TDD RED scaffolds: vitest.config.ts + CI gate tests for INF-01..10
 - [x] 01-01-PLAN.md — Monorepo skeleton: pnpm workspace, tsconfig.base.json, biome.json, .gitignore, .nvmrc, .npmrc, LICENSE, renovate.json
 - [x] 01-02-PLAN.md — Package stubs: all 4 @aprumo/* packages with package.json, tsconfig, vitest.config.ts, src/index.ts; docs/adr/.gitkeep
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 01-03-PLAN.md — Pre-commit security: lefthook.yml, .gitleaks.toml, commitlint.config.ts
+- [x] 01-03-PLAN.md — Pre-commit security: lefthook.yml, .gitleaks.toml, commitlint.config.ts
 - [ ] 01-04-PLAN.md — GitHub Actions CI: composite setup action, ci.yml (7 jobs), release.yml, issue/PR templates
 
 **Wave 3** *(blocked on Wave 2 completion)*
@@ -192,7 +192,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Monorepo Scaffold + CI + Dev Security | 3/7 | Executing (Plan 03 next) | - |
+| 1. Monorepo Scaffold + CI + Dev Security | 4/7 | In Progress|  |
 | 2. Schema Foundation + DB Tooling | 0/TBD | Not started | - |
 | 3. Core Ledger API | 0/TBD | Not started | - |
 | 4. Balance Worker + Reconciliation | 0/TBD | Not started | - |
