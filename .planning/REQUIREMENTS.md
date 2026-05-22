@@ -37,9 +37,9 @@
 - [x] **INF-05**: `commitlint` + Conventional Commits em pre-commit hook
 - [x] **INF-06**: Pre-commit secret scanning (lefthook + detect-secrets ou equivalente) — bloqueia commit de chaves ECDSA/HMAC
 - [ ] **INF-07**: `.gitignore` cobre `.env*`, `*.key`, `secrets/`, build artifacts
-- [ ] **INF-08**: GitHub Actions: matriz Node 22/24, jobs lint+typecheck+test+coverage gate+contract tests+build
-- [ ] **INF-09**: Changesets configurado com `updateInternalDependencies: patch`, sem `linked`, para versionamento independente por pacote
-- [ ] **INF-10**: CI bloqueia PR sem changeset quando há mudanças em pacote publicável
+- [x] **INF-08**: GitHub Actions: matriz Node 22/24, jobs lint+typecheck+test+coverage gate+contract tests+build
+- [x] **INF-09**: Changesets configurado com `updateInternalDependencies: patch`, sem `linked`, para versionamento independente por pacote
+- [x] **INF-10**: CI bloqueia PR sem changeset quando há mudanças em pacote publicável
 
 ### Core Ledger API (API) — Phase 3
 
@@ -194,9 +194,9 @@ Mapped by gsd-roadmapper on 2026-05-18. All 104 v1 requirements mapped to phases
 | INF-05 | Phase 1 | Complete |
 | INF-06 | Phase 1 | Complete |
 | INF-07 | Phase 1 | Pending |
-| INF-08 | Phase 1 | Pending |
-| INF-09 | Phase 1 | Pending |
-| INF-10 | Phase 1 | Pending |
+| INF-08 | Phase 1 | Complete |
+| INF-09 | Phase 1 | Complete |
+| INF-10 | Phase 1 | Complete |
 | FND-01 | Phase 2 | Pending |
 | FND-02 | Phase 2 | Pending |
 | FND-03 | Phase 2 | Pending |

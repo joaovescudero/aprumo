@@ -49,7 +49,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 01-03-PLAN.md — Pre-commit security: lefthook.yml, .gitleaks.toml, commitlint.config.ts
-- [ ] 01-04-PLAN.md — GitHub Actions CI: composite setup action, ci.yml (7 jobs), release.yml, issue/PR templates
+- [x] 01-04-PLAN.md — GitHub Actions CI: composite setup action, ci.yml (7 jobs), release.yml, issue/PR templates
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -192,7 +192,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Monorepo Scaffold + CI + Dev Security | 4/7 | In Progress|  |
+| 1. Monorepo Scaffold + CI + Dev Security | 5/7 | In Progress|  |
 | 2. Schema Foundation + DB Tooling | 0/TBD | Not started | - |
 | 3. Core Ledger API | 0/TBD | Not started | - |
 | 4. Balance Worker + Reconciliation | 0/TBD | Not started | - |
