@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Roadmap created — 9 phases, 104 requirements mapped, REQUIREMENTS.md traceability updated
-last_updated: "2026-05-22T15:24:49.725Z"
-last_activity: 2026-05-22 -- Phase 01 execution started
+stopped_at: "Phase 01 Plan 00 complete — Wave 0 RED scaffolds committed"
+last_updated: "2026-05-22T15:35:00Z"
+last_activity: "2026-05-22 -- Plan 01-00 complete (Wave 0 RED: 5 test files, vitest.config.ts, package.json)"
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 7
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 2
 ---
 
 # Project State
@@ -26,30 +26,30 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 ## Current Position
 
 Phase: 01 (monorepo-scaffold-ci-dev-security) — EXECUTING
-Plan: 1 of 7
+Plan: 2 of 7 (Plan 01 next)
 Status: Executing Phase 01
-Last activity: 2026-05-22 -- Phase 01 execution started
+Last activity: 2026-05-22 -- Plan 01-00 complete (Wave 0 RED scaffolds)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 2%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: 0 hours
+- Total plans completed: 1
+- Average duration: 7m 27s
+- Total execution time: 0.12 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 01 | 1 | 7m 27s | 7m 27s |
 
 **Recent Trend:**
 
-- Last 5 plans: -
-- Trend: -
+- Last 5 plans: 01-00 (7m 27s)
+- Trend: establishing baseline
 
 *Updated after each plan completion*
 
@@ -65,6 +65,8 @@ Recent decisions affecting current work:
 - Starkbank event taxonomy spike (SBC-11) is Phase 6 prerequisite — must be done BEFORE writing NormalizedEvent mapping code
 - Phase 5 (connector-base) must finalize `LedgerConnector` interface including `refundPayment` + `getPayment` before Phase 6 begins
 - Exact-once webhook guarantee (WHI-04) is highest-risk implementation detail — crash-injection test is a hard gate for Phase 7
+- D-20 AMENDED confirmed: vitest.config.ts uses `projects:` array with inline root-tests project (not vitest.workspace.ts deprecated in 3.2)
+- Wave 0 vitest config needs inline project object for tests/ to avoid "No projects found" startup error before packages/ exist
 
 ### Pending Todos
 
@@ -91,5 +93,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-05-22
-Stopped at: Phase 01 execution started
-Resume file: .planning/phases/01-monorepo-scaffold-ci-dev-security/01-CONTEXT.md
+Stopped at: Phase 01 Plan 00 complete — Wave 0 RED scaffolds committed
+Resume file: .planning/phases/01-monorepo-scaffold-ci-dev-security/01-01-PLAN.md
