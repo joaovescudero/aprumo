@@ -4,13 +4,13 @@ milestone: v0.1
 milestone_name: milestone
 status: executing
 stopped_at: Completed 02-04-PLAN.md
-last_updated: "2026-05-22T21:26:00.594Z"
+last_updated: "2026-05-22T21:32:00.521Z"
 last_activity: 2026-05-22
 progress:
   total_phases: 9
   completed_phases: 1
   total_plans: 18
-  completed_plans: 14
+  completed_plans: 15
   percent: 11
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 ## Current Position
 
 Phase: 02 (schema-foundation-db-tooling) — EXECUTING
-Plan: 8 of 11
+Plan: 9 of 11
 Status: Ready to execute
 Last activity: 2026-05-22
 
-Progress: [████████░░] 78%
+Progress: [████████░░] 83%
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Progress: [████████░░] 78%
 | Phase 02-schema-foundation-db-tooling P03 | 5min | 2 tasks | 4 files |
 | Phase 02-schema-foundation-db-tooling P04 | 3min | 2 tasks | 3 files |
 | Phase 02-schema-foundation-db-tooling P06 | 3min | 2 tasks | 3 files |
+| Phase 02-schema-foundation-db-tooling P05 | 150 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,9 @@ Recent decisions affecting current work:
 - [Phase ?]: SECURITY DEFINER function post_transaction is sole INSERT path into postings — DB-level enforcement, not convention
 - [Phase ?]: posting_input composite type chosen over JSONB array for PG-level type safety
 - [Phase ?]: P0001 error code with message prefixes for all validation failures — mappable to HTTP 422 in Phase 3
+- [Phase ?]: Migration landed at idx=5 (0005_double_entry_trigger.sql) — plan 02-06 (audit triggers) occupied idx=4 during parallel execution
+- [Phase ?]: CONSTRAINT TRIGGER is the only trigger type supporting DEFERRABLE — fires at COMMIT (not statement end) for aggregate cross-row double-entry validation
+- [Phase ?]: P0001 + double_entry_violation: prefix for Phase 3 HTTP 422 routing — third immutability layer belt-and-suspenders with post_transaction inline check
 
 ### Pending Todos
 
@@ -115,6 +119,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-22T21:26:00.587Z
+Last session: 2026-05-22T21:32:00.514Z
 Stopped at: Completed 02-04-PLAN.md
 Resume file: None

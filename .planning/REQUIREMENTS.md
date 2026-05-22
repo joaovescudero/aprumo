@@ -18,8 +18,8 @@
 - [x] **FND-07**: Roles PG separadas: `aprumo_app` (SELECT/INSERT only, sem UPDATE/DELETE em postings/raw_events), `aprumo_migration` (DDL completo + DEFAULT PRIVILEGES)
 - [x] **FND-08**: `REVOKE UPDATE, DELETE` em postings + raw_events para role `aprumo_app` (auditado por teste de CI que tenta UPDATE e espera falha)
 - [x] **FND-09**: Função SQL `post_transaction(postings[])` valida balanceamento (SUM com sinal = 0), persiste transactions + postings atomicamente, é o ÚNICO caminho de escrita em postings
-- [ ] **FND-10**: CONSTRAINT TRIGGER (DEFERRABLE INITIALLY DEFERRED, NÃO CHECK) valida double-entry `SUM(amount_cents com sinal) = 0` por transaction_id no COMMIT
-- [ ] **FND-11**: CI verifica que constraint trigger está DEFERRABLE+DEFERRED ativa após cada migração (`pg_constraint` query)
+- [x] **FND-10**: CONSTRAINT TRIGGER (DEFERRABLE INITIALLY DEFERRED, NÃO CHECK) valida double-entry `SUM(amount_cents com sinal) = 0` por transaction_id no COMMIT
+- [x] **FND-11**: CI verifica que constraint trigger está DEFERRABLE+DEFERRED ativa após cada migração (`pg_constraint` query)
 - [x] **FND-12**: Docker-compose dev: Postgres 16+, com env-vars de roles, autovacuum tuning para pg-boss
 - [x] **FND-13**: `pnpm db:reset` destrói e recria DB local; `pnpm db:migrate` aplica migrations
 - [ ] **FND-14**: Seed mínimo dev (1 customer, 2 contas, 1 transaction de exemplo) via `post_transaction` (nunca INSERT direto)
@@ -206,8 +206,8 @@ Mapped by gsd-roadmapper on 2026-05-18. All 104 v1 requirements mapped to phases
 | FND-07 | Phase 2 | Complete |
 | FND-08 | Phase 2 | Complete |
 | FND-09 | Phase 2 | Complete |
-| FND-10 | Phase 2 | Pending |
-| FND-11 | Phase 2 | Pending |
+| FND-10 | Phase 2 | Complete |
+| FND-11 | Phase 2 | Complete |
 | FND-12 | Phase 2 | Complete |
 | FND-13 | Phase 2 | Complete |
 | FND-14 | Phase 2 | Pending |

@@ -95,7 +95,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 for 02-05; blocked on Wave 3 for 02-06 — parallel)*
 
-- [ ] 02-05-PLAN.md — 0004_double_entry_trigger.sql DEFERRABLE INITIALLY DEFERRED + pg_constraint test (TDD)
+- [x] 02-05-PLAN.md — 0004_double_entry_trigger.sql DEFERRABLE INITIALLY DEFERRED + pg_constraint test (TDD)
 - [x] 02-06-PLAN.md — 0005_audit_triggers.sql generic audit_row_change() + audit tests (TDD)
 
 **Wave 6** *(blocked on Wave 4+5)*
@@ -230,7 +230,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Monorepo Scaffold + CI + Dev Security | 7/7 | Complete   | 2026-05-22 |
-| 2. Schema Foundation + DB Tooling | 7/11 | In Progress|  |
+| 2. Schema Foundation + DB Tooling | 8/11 | In Progress|  |
 | 3. Core Ledger API | 0/TBD | Not started | - |
 | 4. Balance Worker + Reconciliation | 0/TBD | Not started | - |
 | 5. Connector Base Interface | 0/TBD | Not started | - |
