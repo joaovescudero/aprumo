@@ -25,8 +25,8 @@
 - [ ] **FND-14**: Seed mínimo dev (1 customer, 2 contas, 1 transaction de exemplo) via `post_transaction` (nunca INSERT direto)
 - [ ] **FND-15**: Drizzle migration hash check em CI (falha em migração editada após commit)
 - [ ] **FND-16**: Testcontainers globalSetup com container Postgres compartilhado + isolamento por schema por arquivo de teste
-- [ ] **FND-17**: ADR-009 (Drizzle ratificado) escrita em `docs/adr/`
-- [ ] **FND-18**: ADRs 001–008 portadas para `docs/adr/` em formato MADR
+- [x] **FND-17**: ADR-009 (Drizzle ratificado) escrita em `docs/adr/`
+- [x] **FND-18**: ADRs 001–008 portadas para `docs/adr/` em formato MADR
 
 ### Infrastructure (INF) — Phase 1
 
@@ -213,8 +213,8 @@ Mapped by gsd-roadmapper on 2026-05-18. All 104 v1 requirements mapped to phases
 | FND-14 | Phase 2 | Pending |
 | FND-15 | Phase 2 | Pending |
 | FND-16 | Phase 2 | Pending |
-| FND-17 | Phase 2 | Pending |
-| FND-18 | Phase 2 | Pending |
+| FND-17 | Phase 2 | Complete |
+| FND-18 | Phase 2 | Complete |
 | API-01 | Phase 3 | Pending |
 | API-02 | Phase 3 | Pending |
 | API-03 | Phase 3 | Pending |

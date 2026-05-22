@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-01-PLAN.md (DB tooling foundation)
-last_updated: "2026-05-22T20:33:01.114Z"
+stopped_at: Completed 02-11-PLAN.md — ADRs 001-009 + README.md
+last_updated: "2026-05-22T20:44:47.482Z"
 last_activity: 2026-05-22
 progress:
   total_phases: 9
   completed_phases: 1
   total_plans: 18
-  completed_plans: 8
+  completed_plans: 9
   percent: 11
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 ## Current Position
 
 Phase: 02 (schema-foundation-db-tooling) — EXECUTING
-Plan: 2 of 11
+Plan: 3 of 11
 Status: Ready to execute
 Last activity: 2026-05-22
 
-Progress: [████░░░░░░] 44%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [████░░░░░░] 44%
 | Phase 01 P03 | 8m | 2 tasks | 3 files |
 | Phase 01 P04 | 4m | 2 tasks | 7 files |
 | Phase 02 P01 | 20m | 2 tasks | 8 files |
+| Phase 02-schema-foundation-db-tooling P11 | 65m | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -76,6 +77,8 @@ Recent decisions affecting current work:
 - [Phase ?]: drizzle-orm/postgres-js/migrator requires max:1 connection — enforced in migrate.ts
 - [Phase ?]: db:reset guarded by NODE_ENV=production check to prevent accidental data loss in production
 - [Phase ?]: postgres:18-alpine pinned for docker-compose (D-40) — same image as testcontainers for reproducibility
+- [Phase ?]: ADR-001: PostgreSQL over TigerBeetle — DEFERRABLE TRIGGER + pg-boss exact-once + REVOKE
+- [Phase ?]: ADR-009 (2026-05-22): Drizzle hybrid migrations + D-47 reservation pattern for pending_balance
 
 ### Pending Todos
 
@@ -101,6 +104,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-22T20:33:01.107Z
-Stopped at: Completed 02-01-PLAN.md (DB tooling foundation)
+Last session: 2026-05-22T20:44:47.476Z
+Stopped at: Completed 02-11-PLAN.md — ADRs 001-009 + README.md
 Resume file: None
