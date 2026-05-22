@@ -959,22 +959,19 @@ git add /tmp/test-key.ts
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **@aprumo npm scope availability**
+1. **@aprumo npm scope availability** — RESOLVED: A7
    - What we know: CONTEXT.md §code_context notes "Phase 1 assumes that @aprumo is available; if not, deciding new scope is Phase 1.5 urgent insert"
-   - What's unclear: Whether `@aprumo` is reserved/claimed on npmjs.com
-   - Recommendation: Planner should add a Wave 0 task: "Verify @aprumo scope available on npmjs.com — if taken, pause and resolve scope name before any package.json is written"
+   - Resolution (A7): Planner proceeds with @aprumo scope. If scope is taken at execution time, this becomes a Phase 1.5 urgent insert. The Wave 0 scaffold test in tests/scaffold/infra.test.ts will surface the issue immediately if package names conflict.
 
-2. **gitleaks org vs personal repo license**
+2. **gitleaks org vs personal repo license** — RESOLVED: A4
    - What we know: License required for org repos, not personal accounts
-   - What's unclear: Whether this repo will live under a GitHub org or personal account at Phase 1 execution time
-   - Recommendation: Add conditional note in the CI gitleaks job: if the repo is under a GitHub org at the time of setup, add GITLEAKS_LICENSE secret (free license from gitleaks.io)
+   - Resolution (A4): Plan 04 ci.yml gitleaks-history job omits GITLEAKS_LICENSE (personal repo assumption). Comment in the YAML instructs the developer to add GITLEAKS_LICENSE secret if the repo moves to a GitHub org.
 
-3. **Vitest v4 per-project glob threshold behavior**
-   - What we know: Root-level thresholds with glob patterns work; per-project config thresholds are silently ignored
-   - What's unclear: Whether the glob `"packages/core/src/**"` is matched against relative or absolute paths in the coverage output — the ordering of glob rules matters (more specific first)
-   - Recommendation: Planner should put core-specific rule BEFORE the wildcard rule in the thresholds object; validate with a red test (intentionally low-coverage file in core should fail the gate)
+3. **Vitest v4 per-project glob threshold behavior** — RESOLVED: Pattern 4 + Pitfall 1
+   - What we know: Root-level thresholds with glob patterns work; per-project config thresholds are silently ignored (Pitfall 1)
+   - Resolution (Pattern 4): core-specific rule `"packages/core/src/**"` is placed BEFORE the wildcard `"packages/*/src/**"` in the thresholds object. Validated by tests/scaffold/coverage-gate-fires.test.ts which creates a 0%-covered fixture in packages/core/src/__fixtures__/ and asserts non-zero vitest --coverage exit.
 
 ---
 
