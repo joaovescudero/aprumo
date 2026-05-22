@@ -36,7 +36,7 @@ Entrega clone-to-green-CI: um operador clona o repo, roda `pnpm install` e vê o
 ### Housekeeping OSS na Phase 1
 - **D-15:** Governance set completo na Phase 1: `LICENSE` (MIT), `README.md` skeleton (status pre-alpha + propósito + link pra docs), `SECURITY.md`, `CONTRIBUTING.md` (TDD-first + Conventional Commits + DCO opcional; link a `CLAUDE.md`), `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), `.github/ISSUE_TEMPLATE/{bug,feature,security}.yml`, `.github/PULL_REQUEST_TEMPLATE.md`.
 - **D-16:** Vulnerability disclosure = GitHub Private Vulnerability Reporting (PVR) **habilitado** + email placeholder genérico no `SECURITY.md` para trocar quando o domínio existir (branding está fora de escopo GSD).
-- **D-17:** `docker-compose.yml` **adiado para Phase 2** (dona do schema + DB). Phase 1 não precisa rodar Postgres.
+- **D-17:** `docker-compose.yml` **adiado para Phase 2** (dona do schema + DB). Phase 1 não precisa rodar Postgres. *[informational — deferral decision, intentionally not in any Phase 1 plan]*
 - **D-18:** Renovate config (`renovate.json`) commitada na Phase 1 com preset `config:recommended` + grouping weekly + auto-merge desabilitado. Ativação real depende de instalar o app Renovate GitHub (ação out-of-band).
 
 ### TypeScript & Vitest Config Shape
