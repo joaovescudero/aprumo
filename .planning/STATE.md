@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 01 Plan 00 complete — Wave 0 RED scaffolds committed"
-last_updated: "2026-05-22T15:35:00Z"
-last_activity: "2026-05-22 -- Plan 01-00 complete (Wave 0 RED: 5 test files, vitest.config.ts, package.json)"
+stopped_at: "Phase 01 Plan 01 complete — monorepo root configs committed, Wave 0 RED→GREEN for INF-01..03, INF-07"
+last_updated: "2026-05-22T16:00:00Z"
+last_activity: "2026-05-22 -- Plan 01-01 complete (pnpm-workspace, tsconfig, biome, gitignore, npmrc, nvmrc, LICENSE, renovate)"
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 7
-  completed_plans: 1
-  percent: 2
+  completed_plans: 2
+  percent: 4
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 ## Current Position
 
 Phase: 01 (monorepo-scaffold-ci-dev-security) — EXECUTING
-Plan: 2 of 7 (Plan 01 next)
+Plan: 3 of 7 (Plan 02 next)
 Status: Executing Phase 01
-Last activity: 2026-05-22 -- Plan 01-00 complete (Wave 0 RED scaffolds)
+Last activity: 2026-05-22 -- Plan 01-01 complete (monorepo root configs)
 
-Progress: [█░░░░░░░░░] 2%
+Progress: [██░░░░░░░░] 4%
 
 ## Performance Metrics
 
@@ -44,11 +44,11 @@ Progress: [█░░░░░░░░░] 2%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01 | 1 | 7m 27s | 7m 27s |
+| 01 | 2 | 15m 27s | 7m 44s |
 
 **Recent Trend:**
 
-- Last 5 plans: 01-00 (7m 27s)
+- Last 5 plans: 01-00 (7m 27s), 01-01 (8m)
 - Trend: establishing baseline
 
 *Updated after each plan completion*
@@ -67,6 +67,8 @@ Recent decisions affecting current work:
 - Exact-once webhook guarantee (WHI-04) is highest-risk implementation detail — crash-injection test is a hard gate for Phase 7
 - D-20 AMENDED confirmed: vitest.config.ts uses `projects:` array with inline root-tests project (not vitest.workspace.ts deprecated in 3.2)
 - Wave 0 vitest config needs inline project object for tests/ to avoid "No projects found" startup error before packages/ exist
+- Biome v2 breaking change: files.ignore renamed to files.includes with ! negation syntax (discovered during 01-01 execution)
+- tests/tsconfig.json required for vitest OXC transformer when root tsconfig.json uses composite/files:[] pattern
 
 ### Pending Todos
 
@@ -93,5 +95,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-05-22
-Stopped at: Phase 01 Plan 00 complete — Wave 0 RED scaffolds committed
-Resume file: .planning/phases/01-monorepo-scaffold-ci-dev-security/01-01-PLAN.md
+Stopped at: Phase 01 Plan 01 complete — monorepo root configs committed, Wave 0 tests 22/32 GREEN
+Resume file: .planning/phases/01-monorepo-scaffold-ci-dev-security/01-02-PLAN.md

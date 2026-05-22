@@ -43,7 +43,7 @@ Plans:
 **Wave 1**
 
 - [ ] 01-00-PLAN.md — Wave 0 TDD RED scaffolds: vitest.config.ts + CI gate tests for INF-01..10
-- [ ] 01-01-PLAN.md — Monorepo skeleton: pnpm workspace, tsconfig.base.json, biome.json, .gitignore, .nvmrc, .npmrc, LICENSE, renovate.json
+- [x] 01-01-PLAN.md — Monorepo skeleton: pnpm workspace, tsconfig.base.json, biome.json, .gitignore, .nvmrc, .npmrc, LICENSE, renovate.json
 - [ ] 01-02-PLAN.md — Package stubs: all 4 @aprumo/* packages with package.json, tsconfig, vitest.config.ts, src/index.ts; docs/adr/.gitkeep
 
 **Wave 2** *(blocked on Wave 1 completion)*
@@ -192,7 +192,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Monorepo Scaffold + CI + Dev Security | 1/7 | Executing (Plan 01 next) | - |
+| 1. Monorepo Scaffold + CI + Dev Security | 2/7 | Executing (Plan 02 next) | - |
 | 2. Schema Foundation + DB Tooling | 0/TBD | Not started | - |
 | 3. Core Ledger API | 0/TBD | Not started | - |
 | 4. Balance Worker + Reconciliation | 0/TBD | Not started | - |
