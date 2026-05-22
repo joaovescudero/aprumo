@@ -72,7 +72,44 @@ Plans:
   5. Drizzle migration hash check runs in CI and fails if any previously committed migration file is edited — no schema drift between local and CI
   6. ADRs 001–009 are written in `docs/adr/` in MADR format and committed
 
-**Plans**: TBD
+**Plans**: 11 plans
+Plans:
+
+**Wave 1** *(parallel — no dependencies)*
+
+- [ ] 02-01-PLAN.md — Drizzle/testcontainers deps install + drizzle.config.ts + docker-compose.yml + root scripts
+- [ ] 02-11-PLAN.md — ADRs 001–009 MADR 4.0 + docs/adr/README.md index
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 02-02-PLAN.md — schema.ts + drizzle-kit generate → 0000_init_tables.sql (all 10 tables)
+- [ ] 02-08-PLAN.md — testcontainers globalSetup + createTestDb schema-per-file helper
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 02-03-PLAN.md — 0001_roles.sql + 0002_grants.sql + REVOKE enforcement tests (TDD)
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 02-04-PLAN.md — 0003_post_transaction.sql SECURITY DEFINER + balanced/unbalanced tests (TDD)
+
+**Wave 5** *(blocked on Wave 4 for 02-05; blocked on Wave 3 for 02-06 — parallel)*
+
+- [ ] 02-05-PLAN.md — 0004_double_entry_trigger.sql DEFERRABLE INITIALLY DEFERRED + pg_constraint test (TDD)
+- [ ] 02-06-PLAN.md — 0005_audit_triggers.sql generic audit_row_change() + audit tests (TDD)
+
+**Wave 6** *(blocked on Wave 4+5)*
+
+- [ ] 02-07-PLAN.md — 0006_seed_dev.sql via post_transaction + db:seed script
+
+**Wave 7** *(blocked on Wave 6)*
+
+- [ ] 02-09-PLAN.md — Migration drift check script + migration-hashes.json + CI step (TDD)
+
+**Wave 8** *(blocked on Wave 7 + Wave 2 testcontainers)*
+
+- [ ] 02-10-PLAN.md — [BLOCKING] E2E migration verification + CI integration-test job
+
 **UI hint**: no
 
 ### Phase 3: Core Ledger API
