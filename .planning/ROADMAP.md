@@ -13,7 +13,7 @@ Security and tooling discipline come first (Phase 1) because the repo is public 
 - Integer phases (1–9): Planned v0.1 milestone work
 - Decimal phases (X.Y): Urgent insertions if needed post-planning
 
-- [ ] **Phase 1: Monorepo Scaffold + CI + Dev Security** - pnpm workspace, TypeScript, Biome, Vitest, CI pipeline, secret scanning, and `.gitignore` — before any key or credential is ever generated
+- [x] **Phase 1: Monorepo Scaffold + CI + Dev Security** - pnpm workspace, TypeScript, Biome, Vitest, CI pipeline, secret scanning, and `.gitignore` — before any key or credential is ever generated (completed 2026-05-22)
 - [ ] **Phase 2: Schema Foundation + DB Tooling** - Drizzle migrations for all ledger tables, PG roles, REVOKE enforcement, deferred double-entry constraint trigger, testcontainers setup, and ADRs
 - [ ] **Phase 3: Core Ledger API** - Fastify REST endpoints for transactions/accounts/postings, `post_transaction` function, idempotency, serialization retry, BigInt serializer, and error handling
 - [ ] **Phase 4: Balance Worker + Reconciliation** - pg-boss queues, incremental balance worker (cursor + FOR UPDATE), daily reconciliation job, and lag Prometheus metric
@@ -54,7 +54,7 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [x] 01-05-PLAN.md — Changesets config: .changeset/config.json, changeset-required script
-- [ ] 01-06-PLAN.md — OSS governance: README.md, SECURITY.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md + branch protection checkpoint
+- [x] 01-06-PLAN.md — OSS governance: README.md, SECURITY.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md + branch protection checkpoint
 
 **UI hint**: no
 
@@ -192,7 +192,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Monorepo Scaffold + CI + Dev Security | 6/7 | In Progress|  |
+| 1. Monorepo Scaffold + CI + Dev Security | 7/7 | Complete   | 2026-05-22 |
 | 2. Schema Foundation + DB Tooling | 0/TBD | Not started | - |
 | 3. Core Ledger API | 0/TBD | Not started | - |
 | 4. Balance Worker + Reconciliation | 0/TBD | Not started | - |
