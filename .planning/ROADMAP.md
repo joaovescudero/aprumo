@@ -53,7 +53,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 01-05-PLAN.md — Changesets config: .changeset/config.json, changeset-required script
+- [x] 01-05-PLAN.md — Changesets config: .changeset/config.json, changeset-required script
 - [ ] 01-06-PLAN.md — OSS governance: README.md, SECURITY.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md + branch protection checkpoint
 
 **UI hint**: no
@@ -192,7 +192,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Monorepo Scaffold + CI + Dev Security | 5/7 | In Progress|  |
+| 1. Monorepo Scaffold + CI + Dev Security | 6/7 | In Progress|  |
 | 2. Schema Foundation + DB Tooling | 0/TBD | Not started | - |
 | 3. Core Ledger API | 0/TBD | Not started | - |
 | 4. Balance Worker + Reconciliation | 0/TBD | Not started | - |
