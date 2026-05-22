@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 context gathered
-last_updated: "2026-05-22T20:18:30.963Z"
-last_activity: 2026-05-22 -- Phase 02 execution started
+stopped_at: Completed 02-01-PLAN.md (DB tooling foundation)
+last_updated: "2026-05-22T20:33:01.114Z"
+last_activity: 2026-05-22
 progress:
   total_phases: 9
   completed_phases: 1
   total_plans: 18
-  completed_plans: 7
+  completed_plans: 8
   percent: 11
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 ## Current Position
 
 Phase: 02 (schema-foundation-db-tooling) — EXECUTING
-Plan: 1 of 11
-Status: Executing Phase 02
-Last activity: 2026-05-22 -- Phase 02 execution started
+Plan: 2 of 11
+Status: Ready to execute
+Last activity: 2026-05-22
 
-Progress: [██████████] 100% (plans) — phase verification pending
+Progress: [████░░░░░░] 44%
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Progress: [██████████] 100% (plans) — phase verification p
 *Updated after each plan completion*
 | Phase 01 P03 | 8m | 2 tasks | 3 files |
 | Phase 01 P04 | 4m | 2 tasks | 7 files |
+| Phase 02 P01 | 20m | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,9 @@ Recent decisions affecting current work:
 - Biome v2 breaking change: files.ignore renamed to files.includes with ! negation syntax (discovered during 01-01 execution)
 - tests/tsconfig.json required for vitest OXC transformer when root tsconfig.json uses composite/files:[] pattern
 - D-01..D-06 (pre-commit stack): lefthook + gitleaks 8.30.1 + commitlint wired; ROADMAP success criterion #2 met (EC key blocked pre-commit)
+- [Phase ?]: drizzle-orm/postgres-js/migrator requires max:1 connection — enforced in migrate.ts
+- [Phase ?]: db:reset guarded by NODE_ENV=production check to prevent accidental data loss in production
+- [Phase ?]: postgres:18-alpine pinned for docker-compose (D-40) — same image as testcontainers for reproducibility
 
 ### Pending Todos
 
@@ -97,6 +101,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-22T18:59:31.647Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-schema-foundation-db-tooling/02-CONTEXT.md
+Last session: 2026-05-22T20:33:01.107Z
+Stopped at: Completed 02-01-PLAN.md (DB tooling foundation)
+Resume file: None

@@ -77,7 +77,7 @@ Plans:
 
 **Wave 1** *(parallel — no dependencies)*
 
-- [ ] 02-01-PLAN.md — Drizzle/testcontainers deps install + drizzle.config.ts + docker-compose.yml + root scripts
+- [x] 02-01-PLAN.md — Drizzle/testcontainers deps install + drizzle.config.ts + docker-compose.yml + root scripts
 - [ ] 02-11-PLAN.md — ADRs 001–009 MADR 4.0 + docs/adr/README.md index
 
 **Wave 2** *(blocked on Wave 1)*
@@ -230,7 +230,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Monorepo Scaffold + CI + Dev Security | 7/7 | Complete   | 2026-05-22 |
-| 2. Schema Foundation + DB Tooling | 0/TBD | Not started | - |
+| 2. Schema Foundation + DB Tooling | 1/11 | In Progress|  |
 | 3. Core Ledger API | 0/TBD | Not started | - |
 | 4. Balance Worker + Reconciliation | 0/TBD | Not started | - |
 | 5. Connector Base Interface | 0/TBD | Not started | - |
