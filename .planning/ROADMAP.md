@@ -14,7 +14,7 @@ Security and tooling discipline come first (Phase 1) because the repo is public 
 - Decimal phases (X.Y): Urgent insertions if needed post-planning
 
 - [x] **Phase 1: Monorepo Scaffold + CI + Dev Security** - pnpm workspace, TypeScript, Biome, Vitest, CI pipeline, secret scanning, and `.gitignore` — before any key or credential is ever generated (completed 2026-05-22)
-- [ ] **Phase 2: Schema Foundation + DB Tooling** - Drizzle migrations for all ledger tables, PG roles, REVOKE enforcement, deferred double-entry constraint trigger, testcontainers setup, and ADRs
+- [x] **Phase 2: Schema Foundation + DB Tooling** - Drizzle migrations for all ledger tables, PG roles, REVOKE enforcement, deferred double-entry constraint trigger, testcontainers setup, and ADRs (completed 2026-05-22)
 - [ ] **Phase 3: Core Ledger API** - Fastify REST endpoints for transactions/accounts/postings, `post_transaction` function, idempotency, serialization retry, BigInt serializer, and error handling
 - [ ] **Phase 4: Balance Worker + Reconciliation** - pg-boss queues, incremental balance worker (cursor + FOR UPDATE), daily reconciliation job, and lag Prometheus metric
 - [ ] **Phase 5: Connector Base Interface** - `LedgerConnector` interface, canonical types, HMAC helpers, contract test suite export, FakeConnector, and dependency graph CI check
@@ -108,7 +108,7 @@ Plans:
 
 **Wave 8** *(blocked on Wave 7 + Wave 2 testcontainers)*
 
-- [ ] 02-10-PLAN.md — [BLOCKING] E2E migration verification + CI integration-test job
+- [x] 02-10-PLAN.md — [BLOCKING] E2E migration verification + CI integration-test job
 
 **UI hint**: no
 
@@ -230,7 +230,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Monorepo Scaffold + CI + Dev Security | 7/7 | Complete   | 2026-05-22 |
-| 2. Schema Foundation + DB Tooling | 10/11 | In Progress|  |
+| 2. Schema Foundation + DB Tooling | 11/11 | Complete   | 2026-05-22 |
 | 3. Core Ledger API | 0/TBD | Not started | - |
 | 4. Balance Worker + Reconciliation | 0/TBD | Not started | - |
 | 5. Connector Base Interface | 0/TBD | Not started | - |
