@@ -100,7 +100,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 4+5)*
 
-- [ ] 02-07-PLAN.md — 0006_seed_dev.sql via post_transaction + db:seed script
+- [x] 02-07-PLAN.md — 0006_seed_dev.sql via post_transaction + db:seed script
 
 **Wave 7** *(blocked on Wave 6)*
 
@@ -230,7 +230,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Monorepo Scaffold + CI + Dev Security | 7/7 | Complete   | 2026-05-22 |
-| 2. Schema Foundation + DB Tooling | 8/11 | In Progress|  |
+| 2. Schema Foundation + DB Tooling | 9/11 | In Progress|  |
 | 3. Core Ledger API | 0/TBD | Not started | - |
 | 4. Balance Worker + Reconciliation | 0/TBD | Not started | - |
 | 5. Connector Base Interface | 0/TBD | Not started | - |

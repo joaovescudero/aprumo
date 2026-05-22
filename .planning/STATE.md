@@ -4,13 +4,13 @@ milestone: v0.1
 milestone_name: milestone
 status: executing
 stopped_at: Completed 02-04-PLAN.md
-last_updated: "2026-05-22T21:32:00.521Z"
+last_updated: "2026-05-22T21:39:46.788Z"
 last_activity: 2026-05-22
 progress:
   total_phases: 9
   completed_phases: 1
   total_plans: 18
-  completed_plans: 15
+  completed_plans: 16
   percent: 11
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 ## Current Position
 
 Phase: 02 (schema-foundation-db-tooling) — EXECUTING
-Plan: 9 of 11
+Plan: 10 of 11
 Status: Ready to execute
 Last activity: 2026-05-22
 
-Progress: [████████░░] 83%
+Progress: [█████████░] 89%
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [████████░░] 83%
 | Phase 02-schema-foundation-db-tooling P04 | 3min | 2 tasks | 3 files |
 | Phase 02-schema-foundation-db-tooling P06 | 3min | 2 tasks | 3 files |
 | Phase 02-schema-foundation-db-tooling P05 | 150 | 2 tasks | 3 files |
+| Phase 02-schema-foundation-db-tooling P07 | 5min | 1 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,8 @@ Recent decisions affecting current work:
 - [Phase ?]: Migration landed at idx=5 (0005_double_entry_trigger.sql) — plan 02-06 (audit triggers) occupied idx=4 during parallel execution
 - [Phase ?]: CONSTRAINT TRIGGER is the only trigger type supporting DEFERRABLE — fires at COMMIT (not statement end) for aggregate cross-row double-entry validation
 - [Phase ?]: P0001 + double_entry_violation: prefix for Phase 3 HTTP 422 routing — third immutability layer belt-and-suspenders with post_transaction inline check
+- [Phase 02 P07]: Custom migrate runner with SEED_TAG_PATTERN=/seed/i skips journal entries tagged as seed — seed registered in _journal.json for Plan 09 drift check but never applied by pnpm db:migrate
+- [Phase 02 P07]: db:seed script points to src/db/seed.ts (TypeScript runner in src/ follows project convention alongside migrate.ts and reset.ts)
 
 ### Pending Todos
 
@@ -119,6 +122,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-22T21:32:00.514Z
+Last session: 2026-05-22T21:39:46.781Z
 Stopped at: Completed 02-04-PLAN.md
 Resume file: None

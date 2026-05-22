@@ -22,7 +22,7 @@
 - [x] **FND-11**: CI verifica que constraint trigger está DEFERRABLE+DEFERRED ativa após cada migração (`pg_constraint` query)
 - [x] **FND-12**: Docker-compose dev: Postgres 16+, com env-vars de roles, autovacuum tuning para pg-boss
 - [x] **FND-13**: `pnpm db:reset` destrói e recria DB local; `pnpm db:migrate` aplica migrations
-- [ ] **FND-14**: Seed mínimo dev (1 customer, 2 contas, 1 transaction de exemplo) via `post_transaction` (nunca INSERT direto)
+- [x] **FND-14**: Seed mínimo dev (1 customer, 2 contas, 1 transaction de exemplo) via `post_transaction` (nunca INSERT direto)
 - [ ] **FND-15**: Drizzle migration hash check em CI (falha em migração editada após commit)
 - [x] **FND-16**: Testcontainers globalSetup com container Postgres compartilhado + isolamento por schema por arquivo de teste
 - [x] **FND-17**: ADR-009 (Drizzle ratificado) escrita em `docs/adr/`
@@ -210,7 +210,7 @@ Mapped by gsd-roadmapper on 2026-05-18. All 104 v1 requirements mapped to phases
 | FND-11 | Phase 2 | Complete |
 | FND-12 | Phase 2 | Complete |
 | FND-13 | Phase 2 | Complete |
-| FND-14 | Phase 2 | Pending |
+| FND-14 | Phase 2 | Complete |
 | FND-15 | Phase 2 | Pending |
 | FND-16 | Phase 2 | Complete |
 | FND-17 | Phase 2 | Complete |
