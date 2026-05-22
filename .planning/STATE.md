@@ -4,13 +4,13 @@ milestone: v0.1
 milestone_name: milestone
 status: executing
 stopped_at: Completed 02-11-PLAN.md — ADRs 001-009 + README.md
-last_updated: "2026-05-22T21:05:41.648Z"
+last_updated: "2026-05-22T21:12:46.795Z"
 last_activity: 2026-05-22
 progress:
   total_phases: 9
   completed_phases: 1
   total_plans: 18
-  completed_plans: 11
+  completed_plans: 12
   percent: 11
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 ## Current Position
 
 Phase: 02 (schema-foundation-db-tooling) — EXECUTING
-Plan: 5 of 11
+Plan: 6 of 11
 Status: Ready to execute
 Last activity: 2026-05-22
 
-Progress: [██████░░░░] 61%
+Progress: [███████░░░] 67%
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Progress: [██████░░░░] 61%
 | Phase 02-schema-foundation-db-tooling P11 | 65m | 2 tasks | 10 files |
 | Phase 02-schema-foundation-db-tooling P08 | 25 | 2 tasks | 7 files |
 | Phase 02-schema-foundation-db-tooling P02 | 7 | 2 tasks | 5 files |
+| Phase 02-schema-foundation-db-tooling P03 | 5min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,9 @@ Recent decisions affecting current work:
 - [Phase ?]: postgres:18-alpine pinned for docker-compose (D-40) — same image as testcontainers for reproducibility
 - [Phase ?]: ADR-001: PostgreSQL over TigerBeetle — DEFERRABLE TRIGGER + pg-boss exact-once + REVOKE
 - [Phase ?]: ADR-009 (2026-05-22): Drizzle hybrid migrations + D-47 reservation pattern for pending_balance
+- [Phase ?]: CREATE ROLE IF NOT EXISTS used for idempotent role creation on db:reset + re-migrate
+- [Phase ?]: REVOKE UPDATE, DELETE on postings and raw_events enforces CLAUDE.md Invariant #1 at DB layer
+- [Phase ?]: No passwords in migration files; aprumo_app NOLOGIN in production; test helper enables LOGIN temporarily
 
 ### Pending Todos
 
@@ -106,6 +110,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-22T21:05:41.641Z
+Last session: 2026-05-22T21:12:46.788Z
 Stopped at: Completed 02-11-PLAN.md — ADRs 001-009 + README.md
 Resume file: None

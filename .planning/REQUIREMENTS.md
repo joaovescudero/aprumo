@@ -15,8 +15,8 @@
 - [x] **FND-04**: Migration `raw_events(id, provider, provider_event_id, received_at, payload_jsonb, transaction_id FK NULL, status, UNIQUE(provider, provider_event_id))` — append-only
 - [x] **FND-05**: Migration `account_balance(account_id PK FK, balance BIGINT, last_posting_id, updated_at)`
 - [x] **FND-06**: Migration de tabelas `*_audit` (accounts_audit, configs_audit, customers_audit, outbound_endpoints_audit) com trigger `AFTER UPDATE/DELETE`
-- [ ] **FND-07**: Roles PG separadas: `aprumo_app` (SELECT/INSERT only, sem UPDATE/DELETE em postings/raw_events), `aprumo_migration` (DDL completo + DEFAULT PRIVILEGES)
-- [ ] **FND-08**: `REVOKE UPDATE, DELETE` em postings + raw_events para role `aprumo_app` (auditado por teste de CI que tenta UPDATE e espera falha)
+- [x] **FND-07**: Roles PG separadas: `aprumo_app` (SELECT/INSERT only, sem UPDATE/DELETE em postings/raw_events), `aprumo_migration` (DDL completo + DEFAULT PRIVILEGES)
+- [x] **FND-08**: `REVOKE UPDATE, DELETE` em postings + raw_events para role `aprumo_app` (auditado por teste de CI que tenta UPDATE e espera falha)
 - [ ] **FND-09**: Função SQL `post_transaction(postings[])` valida balanceamento (SUM com sinal = 0), persiste transactions + postings atomicamente, é o ÚNICO caminho de escrita em postings
 - [ ] **FND-10**: CONSTRAINT TRIGGER (DEFERRABLE INITIALLY DEFERRED, NÃO CHECK) valida double-entry `SUM(amount_cents com sinal) = 0` por transaction_id no COMMIT
 - [ ] **FND-11**: CI verifica que constraint trigger está DEFERRABLE+DEFERRED ativa após cada migração (`pg_constraint` query)
@@ -203,8 +203,8 @@ Mapped by gsd-roadmapper on 2026-05-18. All 104 v1 requirements mapped to phases
 | FND-04 | Phase 2 | Complete |
 | FND-05 | Phase 2 | Complete |
 | FND-06 | Phase 2 | Complete |
-| FND-07 | Phase 2 | Pending |
-| FND-08 | Phase 2 | Pending |
+| FND-07 | Phase 2 | Complete |
+| FND-08 | Phase 2 | Complete |
 | FND-09 | Phase 2 | Pending |
 | FND-10 | Phase 2 | Pending |
 | FND-11 | Phase 2 | Pending |
