@@ -1,0 +1,79 @@
+name: Security Vulnerability
+description: Report a security issue — prefer GitHub Private Vulnerability Reporting (PVR)
+labels: ["security"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Before You Proceed
+
+        **For sensitive security vulnerabilities, please use one of these private channels:**
+
+        1. **GitHub Private Vulnerability Reporting (PVR)** — preferred method.
+           Click "Report a vulnerability" on the [Security tab](../../security/advisories/new)
+           of this repository. Per D-16, GitHub PVR is enabled for this repo.
+
+        2. **Email:** security@aprumo.dev *(placeholder — update when domain is registered)*
+
+        **Do not post credentials, private keys, or sensitive data in this public issue.**
+
+        ---
+
+        Only use this public form for **non-sensitive** security reports (e.g., missing security
+        headers, informational findings, hardening suggestions).
+
+  - type: textarea
+    id: vulnerability-description
+    attributes:
+      label: Vulnerability Description
+      description: Describe the non-sensitive security finding.
+      placeholder: |
+        The HTTP response is missing the X-Content-Type-Options header, which could allow ...
+    validations:
+      required: true
+
+  - type: input
+    id: affected-versions
+    attributes:
+      label: Affected Versions
+      description: Which version(s) are affected?
+      placeholder: "e.g. >= 0.1.0, or 'all versions'"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Estimated Severity
+      options:
+        - "Informational"
+        - "Low"
+        - "Medium"
+        - "High (use PVR for this level)"
+        - "Critical (use PVR for this level)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How can this be reproduced?
+
+  - type: textarea
+    id: remediation
+    attributes:
+      label: Suggested Remediation
+      description: If you have suggestions for fixing this issue, please share them.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: >
+            This is NOT a sensitive finding — I have not included credentials, keys, or
+            exploit details that could be misused
+          required: true
+        - label: I have considered using GitHub PVR for higher-severity findings
+          required: false
