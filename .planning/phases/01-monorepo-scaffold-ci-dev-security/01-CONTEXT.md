@@ -41,12 +41,13 @@ Entrega clone-to-green-CI: um operador clona o repo, roda `pnpm install` e vê o
 
 ### TypeScript & Vitest Config Shape
 - **D-19:** tsconfig layout = `tsconfig.base.json` (compiler options: `strict`, `noUncheckedIndexedAccess`, `target: ES2024`, `module: NodeNext`, `verbatimModuleSyntax: true`) + por pacote `tsconfig.json` (extends + `references` para deps internas) + `tsconfig.build.json` (exclui `**/*.test.ts`, `__fixtures__/**`). INF-02 cumprido aqui.
-- **D-20:** Vitest = `vitest.workspace.ts` raiz + `vitest.config.ts` por pacote. Único caminho que suporta limpo o threshold 90/80 (INF-04) via `coverage.thresholds` por projeto.
+- **D-20:** Vitest = `vitest.config.ts` raiz com array `projects:` (NÃO `vitest.workspace.ts` — depreciado desde Vitest 3.2) + `vitest.config.ts` por pacote opcional. Coverage thresholds vão no root config via glob patterns na ordem específico-antes-de-wildcard (`packages/core/src/**` ANTES de `packages/*/src/**`) — sem isso, per-project thresholds são silenciosamente ignorados. INF-04 cumprido aqui. *[Amendado 2026-05-22 após RESEARCH confirmar deprecação; redação original referenciava `vitest.workspace.ts`.]*
 - **D-21:** Vitest `pool: 'forks'`. Isolation forte; testcontainers PG (Phase 2+) e ledger transações concorrentes exigem isolation real, não threads.
 
 ### Changesets Release Workflow
 - **D-22:** `changesets/action` (GitHub Action) configurada na Phase 1 com Version PR automático + publish on merge. `pnpm changeset publish` real só dispara em Phase 9 (release v0.1.0), mas o workflow já está pronto.
-- **D-23:** Auth npm = **npm OIDC trusted publishing** (`id-token: write` no GH Actions + trusted publisher config no npm). Sem `NPM_TOKEN` longo-prazo. Provenance attestation nativa.
+- **D-23a:** Auth npm — lado GitHub Actions: workflow de release com `permissions: id-token: write` e provenance attestation nativa (`--provenance` em `npm publish`). Cumprido na Phase 1. Sem `NPM_TOKEN` longo-prazo.
+- **D-23b:** Auth npm — lado npm: configurar Trusted Publisher no registry para cada pacote `@aprumo/*`. Adiado para Phase 9 pois exige o pacote já existir em npm (chicken-and-egg: pacote precisa ser publicado uma vez antes de poder vincular o publisher). Primeira release usa `NPM_TOKEN` curto-prazo emitido sob demanda; releases subsequentes via OIDC. *[D-23 original dividida 2026-05-22 após RESEARCH confirmar restrição npm side.]*
 - **D-24:** `.changeset/config.json` = `access: "public"`, `updateInternalDependencies: "patch"`, sem `linked`, `baseBranch: "main"`. INF-09 cumprido.
 
 ### Coverage Reporting & CI Artifacts
