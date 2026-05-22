@@ -20,6 +20,19 @@ jobs:
       - uses: ./.github/actions/setup
       - run: pnpm lint
 
+  # Job 1b: Migration Integrity (FND-15 hard gate)
+  # Verifies that no committed migration SQL file has been edited since migration-hashes.json
+  # was last generated. Exits 1 if any drift detected. Zero external dependencies — runs in
+  # sub-second without a DB. Must run before integration tests.
+  migration-integrity:
+    name: Migration Integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Check migration drift
+        run: node scripts/check-migration-drift.mjs
+
   # Job 2: TypeCheck — tsc project references across all packages
   typecheck:
     name: TypeCheck
