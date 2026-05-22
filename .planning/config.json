@@ -33,7 +33,8 @@
     "pattern_mapper": true,
     "use_worktrees": false,
     "ui_review": false,
-    "ai_integration_phase": false
+    "ai_integration_phase": false,
+    "_auto_chain_active": false
   },
   "ship": {
     "pr_body_sections": [
