@@ -82,7 +82,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 02-02-PLAN.md — schema.ts + drizzle-kit generate → 0000_init_tables.sql (all 10 tables)
+- [x] 02-02-PLAN.md — schema.ts + drizzle-kit generate → 0000_init_tables.sql (all 10 tables)
 - [x] 02-08-PLAN.md — testcontainers globalSetup + createTestDb schema-per-file helper
 
 **Wave 3** *(blocked on Wave 2)*
@@ -230,7 +230,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Monorepo Scaffold + CI + Dev Security | 7/7 | Complete   | 2026-05-22 |
-| 2. Schema Foundation + DB Tooling | 3/11 | In Progress|  |
+| 2. Schema Foundation + DB Tooling | 4/11 | In Progress|  |
 | 3. Core Ledger API | 0/TBD | Not started | - |
 | 4. Balance Worker + Reconciliation | 0/TBD | Not started | - |
 | 5. Connector Base Interface | 0/TBD | Not started | - |
