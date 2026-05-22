@@ -22,6 +22,13 @@
       "when": 1779484129705,
       "tag": "0002_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779484554058,
+      "tag": "0003_post_transaction",
+      "breakpoints": true
     }
   ]
 }
