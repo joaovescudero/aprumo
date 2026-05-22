@@ -121,7 +121,31 @@ jobs:
       - uses: ./.github/actions/setup
       - run: pnpm changeset status --since=main
 
-  # Job 7: Gitleaks History — full git history scan with custom rules (D-06)
+  # Job 7: Integration Tests — testcontainers + full migration stack verification
+  # Runs after lint, typecheck, and build pass. Docker daemon available on ubuntu-latest.
+  # TESTCONTAINERS_RYUK_DISABLED=true avoids Ryuk container-cleanup daemon failures on GH runners.
+  # This job is the Phase 2 gate: pnpm db:migrate end-to-end + all E2E migration assertions.
+  #
+  # Branch protection: add 'integration-test' to required status checks in GitHub UI
+  # (Settings → Branches → Branch protection rules → Status checks).
+  integration-test:
+    name: Integration Tests (testcontainers)
+    needs: [lint, typecheck, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Check migration drift (FND-15 hard gate)
+        run: node scripts/check-migration-drift.mjs
+      - name: Run integration tests (testcontainers)
+        run: pnpm --filter @aprumo/core test --run
+        env:
+          # testcontainers manages its own container — no external DATABASE_URL needed
+          DATABASE_URL: ""
+          # Disable Ryuk cleanup daemon — can fail on GitHub-hosted runners
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+
+  # Job 8: Gitleaks History — full git history scan with custom rules (D-06)
   # fetch-depth: 0 required to scan complete history (not just latest commit)
   # .gitleaks.toml applies custom starkbank-private-key rule (see RESEARCH.md Pattern 6)
   # For org repos: add GITLEAKS_LICENSE secret (free at gitleaks.io) per RESEARCH.md Pitfall 6
