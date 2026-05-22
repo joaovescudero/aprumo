@@ -91,7 +91,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 02-04-PLAN.md — 0003_post_transaction.sql SECURITY DEFINER + balanced/unbalanced tests (TDD)
+- [x] 02-04-PLAN.md — 0003_post_transaction.sql SECURITY DEFINER + balanced/unbalanced tests (TDD)
 
 **Wave 5** *(blocked on Wave 4 for 02-05; blocked on Wave 3 for 02-06 — parallel)*
 
@@ -230,7 +230,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Monorepo Scaffold + CI + Dev Security | 7/7 | Complete   | 2026-05-22 |
-| 2. Schema Foundation + DB Tooling | 5/11 | In Progress|  |
+| 2. Schema Foundation + DB Tooling | 6/11 | In Progress|  |
 | 3. Core Ledger API | 0/TBD | Not started | - |
 | 4. Balance Worker + Reconciliation | 0/TBD | Not started | - |
 | 5. Connector Base Interface | 0/TBD | Not started | - |

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-11-PLAN.md — ADRs 001-009 + README.md
-last_updated: "2026-05-22T21:12:46.795Z"
+stopped_at: Completed 02-04-PLAN.md
+last_updated: "2026-05-22T21:19:11.812Z"
 last_activity: 2026-05-22
 progress:
   total_phases: 9
   completed_phases: 1
   total_plans: 18
-  completed_plans: 12
+  completed_plans: 13
   percent: 11
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 ## Current Position
 
 Phase: 02 (schema-foundation-db-tooling) — EXECUTING
-Plan: 6 of 11
+Plan: 7 of 11
 Status: Ready to execute
 Last activity: 2026-05-22
 
-Progress: [███████░░░] 67%
+Progress: [███████░░░] 72%
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Progress: [███████░░░] 67%
 | Phase 02-schema-foundation-db-tooling P08 | 25 | 2 tasks | 7 files |
 | Phase 02-schema-foundation-db-tooling P02 | 7 | 2 tasks | 5 files |
 | Phase 02-schema-foundation-db-tooling P03 | 5min | 2 tasks | 4 files |
+| Phase 02-schema-foundation-db-tooling P04 | 3min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,9 @@ Recent decisions affecting current work:
 - [Phase ?]: CREATE ROLE IF NOT EXISTS used for idempotent role creation on db:reset + re-migrate
 - [Phase ?]: REVOKE UPDATE, DELETE on postings and raw_events enforces CLAUDE.md Invariant #1 at DB layer
 - [Phase ?]: No passwords in migration files; aprumo_app NOLOGIN in production; test helper enables LOGIN temporarily
+- [Phase ?]: SECURITY DEFINER function post_transaction is sole INSERT path into postings — DB-level enforcement, not convention
+- [Phase ?]: posting_input composite type chosen over JSONB array for PG-level type safety
+- [Phase ?]: P0001 error code with message prefixes for all validation failures — mappable to HTTP 422 in Phase 3
 
 ### Pending Todos
 
@@ -110,6 +114,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-22T21:12:46.788Z
-Stopped at: Completed 02-11-PLAN.md — ADRs 001-009 + README.md
+Last session: 2026-05-22T21:19:11.805Z
+Stopped at: Completed 02-04-PLAN.md
 Resume file: None
