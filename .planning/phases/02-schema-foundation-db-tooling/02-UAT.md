@@ -87,5 +87,14 @@ blocked: 0
       issue: "Uses migrate() with migrationsSchema=schema but migration DDL hardcodes public schema in FK target"
   missing:
     - "Either: regenerate 0000_init_tables.sql so FK uses schema-relative table name (drizzle-kit pgSchema), OR rewrite createTestDb to set search_path before migrate AND strip the explicit public. qualifier from generated FK DDL, OR migrate into public schema and use per-database isolation instead of per-schema"
-  root_cause: ""
-  debug_session: ""
+  root_cause: |
+    drizzle-kit generates FK DDL with literal `"public"."tablename"` qualifier in REFERENCES clauses (see 0000_init_tables.sql:113-117). CREATE TABLE statements have no schema qualifier — search_path resolves them into test_xxx schema correctly. But FK ALTER TABLE tries to bind to literal public.accounts which never exists in the test pool (only test_xxx.accounts does). createTestDb.ts:66 calls drizzle's stock migrate() which applies SQL verbatim — migrationsSchema option only isolates __drizzle_migrations tracking table, it does NOT rewrite migration text. Cascade error: when migrate() throws, the function exits before returning the {app, migration, schema, cleanup} handle, so afterAll's `await db.cleanup()` fails with "Cannot read properties of undefined (reading cleanup)".
+  recommended_fix: |
+    Replace drizzle's stock migrate() in createTestDb.ts with a custom apply loop that string-replaces `"public".` → `"${schema}".` before executing each statement. Migration file content stays unchanged (preserves migration-hashes.json drift gate from Plan 09). Production path (src/db/migrate.ts runMigrations) is unaffected because it runs against the real public schema where the FK target legitimately exists. Steps:
+      1. In packages/core/tests/helpers/createTestDb.ts, drop the `import { migrate } from "drizzle-orm/postgres-js/migrator"` and the `drizzle(migrationSql)` wrapper.
+      2. Replicate the readNonSeedMigrations() logic from src/db/migrate.ts (or export it from there and import).
+      3. For each migration, read SQL → run `.replaceAll('"public".', `"${schema}".`)` → split on `--> statement-breakpoint` → execute each via migrationSql.unsafe(trimmed).
+      4. Track applied hashes in `${schema}.__drizzle_migrations` (not drizzle schema — keep tracker scoped per-test).
+      5. Re-run `pnpm --filter @aprumo/core test` — all 42 currently-skipped tests should execute.
+    Alternative (heavier, cleaner long-term): switch from per-schema to per-database isolation — CREATE DATABASE per test file, run unmodified migrations into its public schema. Trade-off: ~200ms slower startup per file, but zero migration text coupling.
+  debug_session: "inline-diagnosis-2026-05-23"
