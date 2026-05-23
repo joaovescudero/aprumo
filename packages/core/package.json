@@ -25,10 +25,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "lint": "biome check src/",
-    "db:migrate": "tsx src/db/migrate.ts",
-    "db:reset": "tsx src/db/reset.ts",
+    "db:migrate": "tsx --env-file=../../.env src/db/migrate.ts",
+    "db:reset": "tsx --env-file=../../.env src/db/reset.ts",
     "db:generate": "drizzle-kit generate",
-    "db:seed": "tsx src/db/seed.ts"
+    "db:seed": "tsx --env-file=../../.env src/db/seed.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
