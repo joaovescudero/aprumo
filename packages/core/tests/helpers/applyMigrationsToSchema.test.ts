@@ -70,22 +70,44 @@ describe("splitMigrationStatements (unit)", () => {
     expect(statements[0]).toContain("CREATE TYPE mood");
     expect(statements[1]).toContain("CREATE TABLE foo");
   });
+});
 
-  it("WR-03: error-suppression check matches only first token, not CREATE ROLE in a comment", () => {
-    // A statement whose first real SQL token is CREATE TABLE must NOT match the
-    // CREATE ROLE suppression pattern even when the comment above says "CREATE ROLE".
-    // We test by checking that the firstToken logic correctly identifies the statement.
-    // Inline test of the pattern from the fix:
-    const trimmed =
-      "-- replaces aprumo_app (previously via CREATE ROLE)\nCREATE TABLE accounts (id int)";
+// ---------------------------------------------------------------------------
+// Unit tests — role-statement error-suppression firstToken check (WR-03)
+// ---------------------------------------------------------------------------
+
+describe("isRoleStatement firstToken check (unit)", () => {
+  // Helper that mirrors the firstToken check used in applyMigrationsToSchema
+  // savepoint error handler (WR-03 fix).
+  function isRoleStatement(trimmed: string): boolean {
     const firstToken = trimmed
       .replace(/--[^\n]*/g, "")
       .trim()
       .toUpperCase()
       .slice(0, 20);
-    const isRoleStatement = firstToken.startsWith("CREATE ROLE") || firstToken.startsWith("DO ");
-    // Must be FALSE — the first real token is CREATE TABLE, not CREATE ROLE
-    expect(isRoleStatement).toBe(false);
+    return firstToken.startsWith("CREATE ROLE") || firstToken.startsWith("DO ");
+  }
+
+  it("WR-03: CREATE ROLE statement is identified as a role statement", () => {
+    expect(isRoleStatement("CREATE ROLE aprumo_app")).toBe(true);
+  });
+
+  it("WR-03: DO $$ statement is identified as a role statement", () => {
+    expect(isRoleStatement("DO $$ BEGIN END $$")).toBe(true);
+  });
+
+  it("WR-03: CREATE TABLE with CREATE ROLE in a comment is NOT a role statement", () => {
+    // Old regex `/CREATE ROLE|DO \$\$/i.test(trimmed)` would match this and
+    // silently suppress 42710 errors on CREATE TABLE — turning "table already exists"
+    // into a no-op. firstToken check must return false here.
+    const stmt =
+      "-- replaces aprumo_app (previously via CREATE ROLE)\nCREATE TABLE accounts (id int)";
+    expect(isRoleStatement(stmt)).toBe(false);
+  });
+
+  it("WR-03: CREATE TABLE with DO $$ in a comment is NOT a role statement", () => {
+    const stmt = "-- trigger uses DO $$ pattern\nCREATE TABLE events (id int)";
+    expect(isRoleStatement(stmt)).toBe(false);
   });
 });
 
