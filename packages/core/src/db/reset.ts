@@ -57,8 +57,8 @@ export async function resetDatabase(options?: {
     await sql`DROP DATABASE IF EXISTS ${sql(dbName)}`;
     await sql`CREATE DATABASE ${sql(dbName)}`;
 
-    console.log(
-      `DB reset complete — "${dbName}" recreated. Run pnpm db:migrate to reapply migrations.`,
+    process.stdout.write(
+      `DB reset complete — "${dbName}" recreated. Run pnpm db:migrate to reapply migrations.\n`,
     );
   } finally {
     await sql.end();
@@ -75,7 +75,7 @@ if (isMain) {
       process.exit(0);
     })
     .catch((err: unknown) => {
-      console.error("DB reset failed:", err);
+      process.stderr.write(`DB reset failed: ${String(err)}\n`);
       process.exit(1);
     });
 }

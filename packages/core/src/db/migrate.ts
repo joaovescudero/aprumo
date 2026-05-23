@@ -156,11 +156,11 @@ const isMain =
 if (isMain) {
   runMigrations()
     .then(() => {
-      console.log("Migrations applied successfully.");
+      process.stdout.write("Migrations applied successfully.\n");
       process.exit(0);
     })
     .catch((err: unknown) => {
-      console.error("Migration failed:", err);
+      process.stderr.write(`Migration failed: ${String(err)}\n`);
       process.exit(1);
     });
 }

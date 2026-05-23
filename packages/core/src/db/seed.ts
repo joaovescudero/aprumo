@@ -40,7 +40,7 @@ async function runSeed(databaseUrl?: string): Promise<void> {
   try {
     // unsafe() allows multi-statement SQL (the DO $$ block in 0006_seed_dev.sql).
     await sql.unsafe(seedContent);
-    console.log("Seed applied.");
+    process.stdout.write("Seed applied.\n");
   } finally {
     await sql.end();
   }
@@ -58,7 +58,7 @@ if (isMain) {
       process.exit(0);
     })
     .catch((err: unknown) => {
-      console.error("Seed failed:", err);
+      process.stderr.write(`Seed failed: ${String(err)}\n`);
       process.exit(1);
     });
 }
