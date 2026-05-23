@@ -64,6 +64,13 @@
       "when": 1748044860000,
       "tag": "0008_post_transaction_idempotency_race",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1748044920000,
+      "tag": "0009_account_balance_last_posting_fk",
+      "breakpoints": true
     }
   ]
 }

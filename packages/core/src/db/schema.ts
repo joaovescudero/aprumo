@@ -143,7 +143,7 @@ export const accountBalance = pgTable("account_balance", {
   /** Current ledger balance in cents (debit minus credit, signed per account type). */
   balance: bigint("balance", { mode: "bigint" }).notNull().default(sql`0`),
   /** Last posting processed by the incremental worker (cursor for restartability). */
-  last_posting_id: uuid("last_posting_id"),
+  last_posting_id: uuid("last_posting_id").references(() => postings.id),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   /**
    * Reserved for v0.5 pending balance tracking.
