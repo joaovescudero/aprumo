@@ -11,8 +11,13 @@
  */
 import { spawnSync } from "node:child_process";
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+// __dirname is not available in native ESM — derive it from import.meta.url.
+// This pattern matches all other test helpers (applyMigrationsToSchema.ts, createTestDb.ts).
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Root of the monorepo (two levels up from packages/core/)
 const REPO_ROOT = resolve(__dirname, "../../../../");
