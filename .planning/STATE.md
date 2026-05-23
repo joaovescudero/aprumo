@@ -4,13 +4,13 @@ milestone: v0.1
 milestone_name: milestone
 status: executing
 stopped_at: Completed 02-04-PLAN.md
-last_updated: "2026-05-23T03:27:32.650Z"
-last_activity: 2026-05-23 -- Phase 02 planning complete
+last_updated: "2026-05-23T12:39:56.181Z"
+last_activity: 2026-05-23
 progress:
   total_phases: 9
   completed_phases: 1
   total_plans: 20
-  completed_plans: 18
+  completed_plans: 19
   percent: 11
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 ## Current Position
 
 Phase: 02 (schema-foundation-db-tooling) — EXECUTING
-Plan: 11 of 11
+Plan: 2 of 13
 Status: Ready to execute
-Last activity: 2026-05-23 -- Phase 02 planning complete
+Last activity: 2026-05-23
 
-Progress: [██████████] 100%
+Progress: [██████████] 95%
 
 ## Performance Metrics
 
@@ -65,6 +65,7 @@ Progress: [██████████] 100%
 | Phase 02-schema-foundation-db-tooling P07 | 5min | 1 tasks | 10 files |
 | Phase 02-schema-foundation-db-tooling P09 | 8 | 2 tasks | 5 files |
 | Phase 02-schema-foundation-db-tooling P10 | 15min | 2 tasks | 2 files |
+| Phase 02-schema-foundation-db-tooling P12 | 180 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,10 @@ Recent decisions affecting current work:
 - [Phase ?]: P0001 + double_entry_violation: prefix for Phase 3 HTTP 422 routing — third immutability layer belt-and-suspenders with post_transaction inline check
 - [Phase 02 P07]: Custom migrate runner with SEED_TAG_PATTERN=/seed/i skips journal entries tagged as seed — seed registered in _journal.json for Plan 09 drift check but never applied by pnpm db:migrate
 - [Phase 02 P07]: db:seed script points to src/db/seed.ts (TypeScript runner in src/ follows project convention alongside migrate.ts and reset.ts)
+- [Phase 02 P12]: FK qualifiers rewritten in-memory; migration files never modified — drift gate remains intact
+- [Phase 02 P12]: pg_advisory_xact_lock serializes ALTER ROLE across concurrent vitest forks (pg_authid row-lock)
+- [Phase 02 P12]: GRANT USAGE ON SCHEMA to aprumo_migration required for SECURITY DEFINER PL/pgSQL compilation in test schema
+- [Phase 02 P12]: readWithRetry() 10-attempt exponential backoff resolves macOS APFS ENOENT race under concurrent I/O
 
 ### Pending Todos
 
@@ -124,6 +129,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-22T21:53:12.305Z
-Stopped at: Completed 02-04-PLAN.md
+Last session: 2026-05-23T09:40:00.000Z
+Stopped at: Completed 02-12-PLAN.md
 Resume file: None
