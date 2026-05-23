@@ -35,8 +35,11 @@ export async function resetDatabase(options?: {
   const dbName = options?.dbName ?? process.env.RESET_DB_NAME ?? "aprumo";
 
   // Build the system-DB URL by replacing the database name with "postgres".
-  // This assumes the URL is in the form postgres://user:pass@host:port/dbname
-  const systemUrl = appDbUrl.replace(/\/[^/?]+(\?.*)?$/, "/postgres");
+  // Using the URL class avoids the regex fragility where a "/" in the password
+  // portion could match the database-path segment — see WR-02 review finding.
+  const parsed = new URL(appDbUrl);
+  parsed.pathname = "/postgres";
+  const systemUrl = parsed.toString();
 
   const sql = postgres(systemUrl, { max: 1 });
 
