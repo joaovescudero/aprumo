@@ -45,11 +45,18 @@ export function splitMigrationStatements(sql: string): string[] {
     return sql.split("--> statement-breakpoint");
   }
 
-  // Split on `;` outside of `$$...$$` dollar-quoted blocks and `--` comment lines.
+  // Split on `;` outside of dollar-quoted blocks and `--` comment lines.
   // This is required because PostgreSQL simple query protocol parses ALL statements
   // before executing any — so each statement must be sent individually.
+  //
+  // Dollar-quote support: PostgreSQL allows both plain `$$` and named dollar-quotes
+  // such as `$function$` or `$body$`. The parser captures the full opening tag
+  // (e.g. `$function$`) and only exits dollar-quote mode when the identical closing
+  // tag is found. This prevents premature exit on a `$$` pair that appears inside a
+  // `$function$...$function$` body.
   const statements: string[] = [];
   let current = "";
+  let currentDollarTag: string | null = null;
   let inDollarQuote = false;
   let inLineComment = false;
   let i = 0;
@@ -81,15 +88,32 @@ export function splitMigrationStatements(sql: string): string[] {
       continue;
     }
 
-    // Check for start/end of dollar-quote block (`$$`).
+    // Check for dollar-quote delimiter (plain `$$` or named `$tag$`).
     // Guard with !inLineComment to prevent a $$ sequence inside a `--` comment
-    // from flipping inDollarQuote. Without the guard, `-- uses $$ quoting` would
-    // incorrectly enter dollar-quote mode and suppress all subsequent semicolons.
-    if (!inLineComment && ch === "$" && next === "$") {
-      inDollarQuote = !inDollarQuote;
-      current += "$$";
-      i += 2;
-      continue;
+    // from flipping inDollarQuote.
+    if (!inLineComment && ch === "$") {
+      // Find the closing `$` of this potential dollar-quote delimiter.
+      const closeIdx = sql.indexOf("$", i + 1);
+      if (closeIdx !== -1) {
+        const tag = sql.slice(i, closeIdx + 1); // e.g. "$$" or "$function$"
+        if (!inDollarQuote) {
+          // Opening delimiter: tag must match PostgreSQL rules (only alphanumeric + underscore).
+          if (/^\$[A-Za-z0-9_]*\$$/.test(tag)) {
+            currentDollarTag = tag;
+            inDollarQuote = true;
+            current += tag;
+            i = closeIdx + 1;
+            continue;
+          }
+        } else if (tag === currentDollarTag) {
+          // Closing delimiter matches the opening tag — exit dollar-quote mode.
+          inDollarQuote = false;
+          currentDollarTag = null;
+          current += tag;
+          i = closeIdx + 1;
+          continue;
+        }
+      }
     }
 
     // Split on `;` only when NOT inside a dollar-quoted block or comment
