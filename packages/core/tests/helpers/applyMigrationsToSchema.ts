@@ -173,8 +173,15 @@ export function rewritePublicQualifier(sql: string, schema: string): string {
  */
 export function rewriteForTestSchema(sql: string, schema: string): string {
   return sql
-    .replaceAll("SET search_path = public", `SET search_path = ${schema},public`)
-    .replaceAll("IN SCHEMA public", `IN SCHEMA ${schema}`);
+    .split("\n")
+    .map((line) =>
+      line.trimStart().startsWith("--")
+        ? line
+        : line
+            .replaceAll("SET search_path = public", `SET search_path = ${schema},public`)
+            .replaceAll("IN SCHEMA public", `IN SCHEMA ${schema}`),
+    )
+    .join("\n");
 }
 
 /**
