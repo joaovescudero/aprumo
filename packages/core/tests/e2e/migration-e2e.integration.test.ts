@@ -33,10 +33,10 @@ beforeAll(async () => {
   // Using migration role because aprumo_app needs GRANT to insert into accounts
   // (verifying its grant is done via other tests — here we use superuser for simplicity).
   const result = await db.migration.query<{ id: string }>(
-    `INSERT INTO accounts (id, type, metadata, created_at)
+    `INSERT INTO accounts (id, type, metadata, owner_ref, created_at)
      VALUES
-       (gen_random_uuid(), 'asset',     '{}'::jsonb, now()),
-       (gen_random_uuid(), 'liability', '{}'::jsonb, now())
+       (gen_random_uuid(), 'asset',     '{}'::jsonb, 'e2e-test', now()),
+       (gen_random_uuid(), 'liability', '{}'::jsonb, 'e2e-test', now())
      RETURNING id`,
   );
 

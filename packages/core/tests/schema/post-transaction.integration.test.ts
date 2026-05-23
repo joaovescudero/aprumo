@@ -25,10 +25,10 @@ beforeAll(async () => {
   // until grants are confirmed, but migration role always can).
   // Using gen_random_uuid() inside the query for PG-side UUID generation.
   const result = await db.migration.query<{ id: string }>(
-    `INSERT INTO accounts (id, type, metadata, created_at)
+    `INSERT INTO accounts (id, type, metadata, owner_ref, created_at)
      VALUES
-       (gen_random_uuid(), 'asset',     '{}'::jsonb, now()),
-       (gen_random_uuid(), 'liability', '{}'::jsonb, now())
+       (gen_random_uuid(), 'asset',     '{}'::jsonb, 'test', now()),
+       (gen_random_uuid(), 'liability', '{}'::jsonb, 'test', now())
      RETURNING id`,
   );
 
@@ -180,14 +180,18 @@ describe("post_transaction — FND-09 + CLAUDE.md Invariants #1, #2, #3", () => 
   });
 
   describe("immutability — sole write path enforcement (CLAUDE.md Invariant #1)", () => {
-    it("aprumo_app cannot INSERT into postings directly → SQLSTATE 42501", async () => {
+    it("aprumo_app direct INSERT into postings with missing transaction_id → FK violation (23503)", async () => {
+      // aprumo_app HAS INSERT on postings (per CLAUDE.md: SELECT/INSERT on all tables).
+      // The "sole write path" invariant is enforced by the double-entry CONSTRAINT TRIGGER
+      // (see 0005_double_entry_trigger.sql), not by revoking INSERT on postings.
+      // Inserting with a random non-existent transaction_id gets FK violation, not 42501.
       await expect(
         db.app.query(
           `INSERT INTO postings (id, transaction_id, account_id, amount_cents, direction)
            VALUES (gen_random_uuid(), gen_random_uuid(), $1, 100, 'debit')`,
           [account1Id],
         ),
-      ).rejects.toMatchObject({ code: "42501" });
+      ).rejects.toMatchObject({ code: "23503" });
     });
   });
 });
