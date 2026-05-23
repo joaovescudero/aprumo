@@ -40,7 +40,7 @@ const SEED_TAG_PATTERN = /seed/i;
  * Dollar-quote tracking: we track whether we are inside a `$$` block and skip
  * any `;` found within it. This handles PL/pgSQL function bodies safely.
  */
-function splitMigrationStatements(sql: string): string[] {
+export function splitMigrationStatements(sql: string): string[] {
   if (sql.includes("--> statement-breakpoint")) {
     return sql.split("--> statement-breakpoint");
   }
@@ -81,8 +81,11 @@ function splitMigrationStatements(sql: string): string[] {
       continue;
     }
 
-    // Check for start/end of dollar-quote block (`$$`)
-    if (ch === "$" && next === "$") {
+    // Check for start/end of dollar-quote block (`$$`).
+    // Guard with !inLineComment to prevent a $$ sequence inside a `--` comment
+    // from flipping inDollarQuote. Without the guard, `-- uses $$ quoting` would
+    // incorrectly enter dollar-quote mode and suppress all subsequent semicolons.
+    if (!inLineComment && ch === "$" && next === "$") {
       inDollarQuote = !inDollarQuote;
       current += "$$";
       i += 2;
@@ -168,7 +171,7 @@ export function rewritePublicQualifier(sql: string, schema: string): string {
  *
  * Note: This is a test-only helper — production migrate.ts is unmodified.
  */
-function rewriteForTestSchema(sql: string, schema: string): string {
+export function rewriteForTestSchema(sql: string, schema: string): string {
   return sql
     .replaceAll("SET search_path = public", `SET search_path = ${schema},public`)
     .replaceAll("IN SCHEMA public", `IN SCHEMA ${schema}`);

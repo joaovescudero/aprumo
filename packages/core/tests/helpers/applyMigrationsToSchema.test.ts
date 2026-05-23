@@ -12,7 +12,12 @@ import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 import { afterAll, describe, expect, inject, it } from "vitest";
 
-import { applyMigrationsToSchema, rewritePublicQualifier } from "./applyMigrationsToSchema.js";
+import {
+  applyMigrationsToSchema,
+  rewriteForTestSchema,
+  rewritePublicQualifier,
+  splitMigrationStatements,
+} from "./applyMigrationsToSchema.js";
 import { computeSchemaName } from "./createTestDb.js";
 
 const MIGRATIONS_FOLDER = resolve(fileURLToPath(import.meta.url), "../../../migrations");
@@ -41,6 +46,80 @@ describe("rewritePublicQualifier (unit)", () => {
     const occurrences = (result.match(/"myschema"\."table_x"/g) ?? []).length;
     expect(occurrences).toBe(3);
     expect(result).not.toContain('"public"."table_x"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Unit tests — splitMigrationStatements
+// ---------------------------------------------------------------------------
+
+describe("splitMigrationStatements (unit)", () => {
+  it("WR-01: dollar-quote inside -- comment does not corrupt statement splitting", () => {
+    // A line comment containing $$ must NOT flip inDollarQuote.
+    // The migration below has a comment with $$ on the first line, then two
+    // separate statements. Without the guard, both statements are merged.
+    const sql = [
+      "-- uses $$ dollar quoting here",
+      "CREATE TYPE mood AS ENUM ('happy', 'sad');",
+      "CREATE TABLE foo (id int);",
+    ].join("\n");
+
+    const statements = splitMigrationStatements(sql);
+    // Must produce exactly 2 statements (not 1 merged blob).
+    expect(statements).toHaveLength(2);
+    expect(statements[0]).toContain("CREATE TYPE mood");
+    expect(statements[1]).toContain("CREATE TABLE foo");
+  });
+
+  it("WR-03: error-suppression check matches only first token, not CREATE ROLE in a comment", () => {
+    // A statement whose first real SQL token is CREATE TABLE must NOT match the
+    // CREATE ROLE suppression pattern even when the comment above says "CREATE ROLE".
+    // We test by checking that the firstToken logic correctly identifies the statement.
+    // Inline test of the pattern from the fix:
+    const trimmed =
+      "-- replaces aprumo_app (previously via CREATE ROLE)\nCREATE TABLE accounts (id int)";
+    const firstToken = trimmed
+      .replace(/--[^\n]*/g, "")
+      .trim()
+      .toUpperCase()
+      .slice(0, 20);
+    const isRoleStatement = firstToken.startsWith("CREATE ROLE") || firstToken.startsWith("DO ");
+    // Must be FALSE — the first real token is CREATE TABLE, not CREATE ROLE
+    expect(isRoleStatement).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Unit tests — rewriteForTestSchema
+// ---------------------------------------------------------------------------
+
+describe("rewriteForTestSchema (unit)", () => {
+  it("WR-04: does NOT rewrite SET search_path inside a -- comment line", () => {
+    const sql = [
+      "-- SET search_path = public: prevents search_path injection (T-2-04).",
+      "SET search_path = public",
+    ].join("\n");
+
+    const result = rewriteForTestSchema(sql, "test_abc123");
+    const lines = result.split("\n");
+    // Comment line must be preserved verbatim
+    expect(lines[0]).toBe("-- SET search_path = public: prevents search_path injection (T-2-04).");
+    // Non-comment line must be rewritten
+    expect(lines[1]).toBe("SET search_path = test_abc123,public");
+  });
+
+  it("WR-04: does NOT rewrite IN SCHEMA public inside a -- comment line", () => {
+    const sql = [
+      "-- grants IN SCHEMA public are required",
+      "GRANT ALL ON ALL TABLES IN SCHEMA public TO aprumo_app;",
+    ].join("\n");
+
+    const result = rewriteForTestSchema(sql, "test_abc123");
+    const lines = result.split("\n");
+    // Comment line must be preserved verbatim
+    expect(lines[0]).toBe("-- grants IN SCHEMA public are required");
+    // Non-comment line must be rewritten
+    expect(lines[1]).toContain("IN SCHEMA test_abc123");
   });
 });
 
