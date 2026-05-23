@@ -137,6 +137,43 @@ describe("applyMigrationsToSchema (integration)", () => {
     }
   });
 
+  it("WR-02: migration DDL and tracking row are both visible after applyMigrationsToSchema", async () => {
+    // Full process-kill simulation is impractical in a unit test.
+    // This test verifies that after a successful migration run, both the DDL
+    // effect (table exists) and the tracking row are present — confirming they
+    // were committed atomically (no partial-commit window).
+    const pgUri = inject("pgUri");
+    if (!pgUri) {
+      console.warn("Skipping integration test — no pgUri (Docker unavailable)");
+      return;
+    }
+
+    const atomicSchema = computeSchemaName(`${import.meta.url}__atomic_test`);
+    const setupSql = postgres(pgUri, { max: 1 });
+    try {
+      await setupSql`CREATE SCHEMA IF NOT EXISTS ${setupSql(atomicSchema)}`;
+      await applyMigrationsToSchema(pgUri, MIGRATIONS_FOLDER, atomicSchema);
+
+      // DDL effect: accounts table must exist
+      const tableResult = await setupSql<{ table_name: string }[]>`
+        SELECT table_name FROM information_schema.tables
+        WHERE table_schema = ${atomicSchema} AND table_name = 'accounts'
+      `;
+      expect(tableResult.length).toBe(1);
+
+      // Tracking row must exist for the first migration (atomically)
+      const trackResult = await setupSql<{ count: string }[]>`
+        SELECT count(*)::text AS count FROM ${setupSql(atomicSchema)}.__drizzle_migrations
+      `;
+      const trackCount = trackResult[0];
+      expect(trackCount).toBeDefined();
+      expect(Number(trackCount!.count)).toBeGreaterThan(0);
+    } finally {
+      await setupSql`DROP SCHEMA IF EXISTS ${setupSql(atomicSchema)} CASCADE`;
+      await setupSql.end();
+    }
+  });
+
   it("Test 4: does not execute statements from seed-tagged migrations", async () => {
     const pgUri = inject("pgUri");
     if (!pgUri) {

@@ -305,43 +305,63 @@ export async function applyMigrationsToSchema(
         continue;
       }
 
-      // Execute migration DDL. Each statement is wrapped in an explicit transaction
-      // that begins with `SET LOCAL search_path = schema,public` so type resolution
-      // (e.g. `posting_input` in ALTER FUNCTION signatures) uses the correct schema.
-      // SET LOCAL persists for the duration of the transaction only.
+      // Execute migration DDL and tracking INSERT in a single outer transaction.
       //
-      // Note: DDL in PostgreSQL is transactional (CREATE TYPE, CREATE FUNCTION, etc.)
-      // so each statement is safe to commit individually.
-      for (const statement of migration.sql) {
-        const trimmed = statement.trim();
-        if (trimmed.length === 0) continue;
-        try {
-          await sql.begin(async (tx) => {
-            // Set search_path for this transaction so DDL type lookups find test_xxx types.
-            // SET LOCAL reverts after the transaction; the session search_path (set above)
-            // remains as the default between transactions.
-            await tx.unsafe(`SET LOCAL search_path = ${schema},public`);
-            await tx.unsafe(trimmed);
-          });
-        } catch (err) {
-          // 23505 = unique_violation: tolerated for cluster-level role creation when
-          // multiple test files run concurrently in forks mode. The roles are global
-          // (pg_authid) — if another fork already created them, we're idempotent.
-          // 42710 = duplicate_object: similarly tolerated for roles and types.
-          const pgCode =
-            err instanceof Error && "code" in err ? (err as { code: string }).code : undefined;
-          const isRoleStatement = /CREATE ROLE|DO \$\$/i.test(trimmed);
-          if ((pgCode === "23505" || pgCode === "42710") && isRoleStatement) {
-            // Role already created by a concurrent fork — safely idempotent.
-            continue;
-          }
-          throw err;
-        }
-      }
-
-      // Record the migration as applied — use a transaction to ensure atomicity.
+      // Using one transaction for all statements of a migration + the tracking INSERT
+      // eliminates the partial-failure window: if the process is interrupted after DDL
+      // commits but before the tracking INSERT commits, the migration is applied but
+      // never recorded, and the next run fails on non-idempotent DDL (e.g. CREATE TABLE
+      // without IF NOT EXISTS). Wrapping both in one transaction makes them atomic.
+      //
+      // SET LOCAL search_path at the top of the transaction applies to all statements
+      // within it — same type-resolution behaviour as the previous per-statement approach.
+      //
+      // Role/type duplicates (23505 / 42710): handled via savepoints so the outer
+      // transaction stays alive when a concurrent fork has already created a global role.
       await sql.begin(async (tx) => {
+        // Set search_path once for the whole migration transaction so DDL type lookups
+        // (e.g. `posting_input` composite type in ALTER FUNCTION signatures) find the
+        // correct test schema types. SET LOCAL reverts at transaction end.
         await tx.unsafe(`SET LOCAL search_path = ${schema},public`);
+
+        for (const statement of migration.sql) {
+          const trimmed = statement.trim();
+          if (trimmed.length === 0) continue;
+
+          // Use a savepoint so that a 23505/42710 on role/DO statements can be
+          // absorbed without aborting the outer transaction. Without the savepoint,
+          // any error would put the transaction in an aborted state and prevent the
+          // tracking INSERT from running.
+          await tx.savepoint(async (sp) => {
+            try {
+              await sp.unsafe(trimmed);
+            } catch (err) {
+              // 23505 = unique_violation / 42710 = duplicate_object: tolerated for
+              // cluster-level role creation when multiple test forks run concurrently.
+              // Roles are in pg_authid (global) — a concurrent fork may have already
+              // created them. Check the first real SQL token (not comment text) so
+              // that a CREATE TABLE whose comment mentions CREATE ROLE is not silently
+              // swallowed.
+              const pgCode =
+                err instanceof Error && "code" in err ? (err as { code: string }).code : undefined;
+              const firstToken = trimmed
+                .replace(/--[^\n]*/g, "")
+                .trim()
+                .toUpperCase()
+                .slice(0, 20);
+              const isRoleStatement =
+                firstToken.startsWith("CREATE ROLE") || firstToken.startsWith("DO ");
+              if ((pgCode === "23505" || pgCode === "42710") && isRoleStatement) {
+                // Role already created by a concurrent fork — safely idempotent.
+                // Savepoint is automatically rolled back on error; outer tx continues.
+                return;
+              }
+              throw err;
+            }
+          });
+        }
+
+        // Insert tracking record in the same transaction — atomic with the DDL above.
         await tx`
           INSERT INTO ${tx(schema)}.__drizzle_migrations (hash, created_at)
           VALUES (${migration.hash}, ${migration.folderMillis})
