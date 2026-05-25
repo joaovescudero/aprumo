@@ -1,351 +1,183 @@
 ---
 phase: 02-schema-foundation-db-tooling
-reviewed: 2026-05-23T00:00:00Z
+reviewed: 2026-05-25T14:00:00Z
 depth: standard
-files_reviewed: 49
+files_reviewed: 2
 files_reviewed_list:
-  - .github/workflows/ci.yml
-  - docs/adr/0001-postgres-as-ledger-engine.md
-  - docs/adr/0002-fastify-http-framework.md
-  - docs/adr/0003-pg-boss-workflow.md
-  - docs/adr/0004-incremental-balance-worker.md
-  - docs/adr/0005-accounting-split-async-settlement.md
-  - docs/adr/0006-versioning-v01-v05.md
-  - docs/adr/0007-smart-routing-as-logical-failover.md
-  - docs/adr/0008-mit-core-enterprise-edition.md
-  - docs/adr/0009-drizzle-orm-migrations.md
-  - docs/adr/README.md
-  - packages/core/drizzle.config.ts
-  - packages/core/migrations/0000_init_tables.sql
-  - packages/core/migrations/0001_roles.sql
-  - packages/core/migrations/0002_grants.sql
-  - packages/core/migrations/0003_post_transaction.sql
-  - packages/core/migrations/0004_audit_triggers.sql
-  - packages/core/migrations/0005_double_entry_trigger.sql
-  - packages/core/migrations/0006_seed_dev.sql
-  - packages/core/migrations/meta/0000_snapshot.json
-  - packages/core/migrations/meta/0001_snapshot.json
-  - packages/core/migrations/meta/0002_snapshot.json
-  - packages/core/migrations/meta/0003_snapshot.json
-  - packages/core/migrations/meta/0004_snapshot.json
-  - packages/core/migrations/meta/0005_snapshot.json
-  - packages/core/migrations/meta/0006_snapshot.json
-  - packages/core/migrations/meta/_journal.json
-  - packages/core/migrations/migration-hashes.json
-  - packages/core/package.json
-  - packages/core/src/db/migrate.ts
-  - packages/core/src/db/reset.ts
-  - packages/core/src/db/schema.ts
-  - packages/core/src/db/seed.ts
-  - packages/core/tests/e2e/migration-e2e.integration.test.ts
+  - packages/core/tests/helpers/globalSetup.race.test.ts
   - packages/core/tests/globalSetup.ts
-  - packages/core/tests/helpers/applyMigrationsToSchema.ts
-  - packages/core/tests/helpers/createTestDb.ts
-  - packages/core/tests/infra/migration-drift.test.ts
-  - packages/core/tests/schema/audit-triggers.integration.test.ts
-  - packages/core/tests/schema/constraint-trigger.integration.test.ts
-  - packages/core/tests/schema/post-transaction.integration.test.ts
-  - packages/core/tests/schema/revoke.integration.test.ts
-  - packages/core/tests/schema/schema-shape.integration.test.ts
-  - packages/core/tests/setup/container.ts
-  - packages/core/tests/vitest.d.ts
-  - packages/core/tsconfig.json
-  - packages/core/vitest.config.ts
-  - scripts/check-migration-drift.mjs
-  - scripts/generate-migration-hashes.mjs
 findings:
-  critical: 2
-  warning: 4
-  info: 3
-  total: 9
+  critical: 1
+  warning: 2
+  info: 1
+  total: 4
 status: issues_found
 ---
 
-# Phase 02: Code Review Report
+# Phase 02 Plan 14: Code Review Report (Addendum)
 
-**Reviewed:** 2026-05-23T00:00:00Z
+**Reviewed:** 2026-05-25T14:00:00Z
 **Depth:** standard
-**Files Reviewed:** 49
+**Files Reviewed:** 2 (plan 02-14 gap-closure delta only)
 **Status:** issues_found
 
 ## Summary
 
-This phase delivers the Postgres schema DDL, migration runner, role/permission model, `post_transaction` SECURITY DEFINER function, audit triggers, deferred double-entry constraint trigger, hash-based drift gate, and the full test harness with testcontainers and per-schema isolation. The overall architecture is well-reasoned and the layered invariant enforcement (REVOKE + SECURITY DEFINER + deferred constraint trigger) is conceptually correct.
+This addendum reviews the two files changed by plan 02-14: `globalSetup.ts` (GREEN fix — role pre-creation) and `globalSetup.race.test.ts` (RED + RACE-02 tests documenting and asserting the fix boundary). The fix correctly uses PL/pgSQL `EXCEPTION WHEN duplicate_object` to atomically pre-create cluster-global roles before any Vitest worker fork, which is the right mechanism.
 
-Two critical defects were found. First, `aprumo_app` actually retains direct `INSERT` privilege on the `postings` table — the broad `GRANT SELECT, INSERT ON ALL TABLES` is never followed by a matching `REVOKE INSERT`, only `REVOKE UPDATE, DELETE`. Comments throughout the codebase claim the opposite, and the architecture of the SECURITY DEFINER function depends on it. Second, the idempotency guard in `post_transaction` is a SELECT-then-INSERT sequence with no concurrent-duplicate handler; two simultaneous calls with the same key will both pass the SELECT guard and then race to INSERT, causing the loser to throw a `unique_violation` instead of silently returning the existing transaction ID.
+One critical defect was found: `teardown()` calls `container.stop()` unconditionally, and the testcontainers v12 library passes `autoRemove=true` to the started container even when constructed via the `withReuse()` path. This means `APRUMO_TEST_REUSE=1` does not actually preserve the container across test runs — teardown destroys it. The reuse feature is silently broken.
 
-Four warnings cover: missing `TESTCONTAINERS_RYUK_DISABLED` env var on the coverage CI job (causing intermittent Ryuk failures on GitHub runners), a fragile URL regex in `reset.ts`, a nullable `last_posting_id` cursor column with no FK validation, and a latent named-dollar-quote parsing gap in the test migration splitter.
+Two warnings: the outer `catch` block in `setup()` conflates "Docker unavailable" with unexpected errors from within the role pre-creation block (e.g., `adminSql.end()` failure), causing misleading diagnostic messages. RACE-01 is a vacuous test on every run — if the race does not trigger (timing-dependent), it passes with zero assertions, providing no regression value.
 
 ---
 
 ## Critical Issues
 
-### CR-01: `aprumo_app` retains direct INSERT privilege on `postings` — SECURITY DEFINER sole-write-path invariant is not enforced at the DB layer
+### CR-01: `teardown()` destroys container when `APRUMO_TEST_REUSE=1` — `withReuse()` is silently inoperative
 
-**File:** `packages/core/migrations/0002_grants.sql:8-12`
+**File:** `packages/core/tests/globalSetup.ts:74-78`
 
-**Issue:** The grants migration issues a broad privilege grant and then only partially revokes it:
+**Issue:** The `teardown()` function calls `container.stop()` unconditionally:
 
-```sql
--- Line 8
-GRANT SELECT, INSERT ON ALL TABLES IN SCHEMA public TO aprumo_app;
-
--- Lines 11-12 — only UPDATE and DELETE are revoked; INSERT is NOT revoked
-REVOKE UPDATE, DELETE ON TABLE postings FROM aprumo_app;
-REVOKE UPDATE, DELETE ON TABLE raw_events FROM aprumo_app;
+```typescript
+export async function teardown() {
+  if (container) {
+    await container.stop();
+  }
+}
 ```
 
-The `aprumo_app` role retains `INSERT` on both `postings` and `raw_events`. This directly contradicts multiple explicit claims in the codebase:
+When `APRUMO_TEST_REUSE=1`, the `builder.withReuse()` flag is set before `builder.start()`. In testcontainers v12, the `reuseContainer()` internal method constructs a `StartedGenericContainer` with `this.autoRemove` as the final argument (see `generic-container.js` line 173):
 
-- `0003_post_transaction.sql` line 8: "even when called by aprumo_app (which has EXECUTE on the function but **NO direct INSERT privilege on postings**)"
-- `0003_post_transaction.sql` line 118: "DO NOT grant INSERT ON postings to aprumo_app here or anywhere (sole write path invariant)"
-- CLAUDE.md Invariant #1: post_transaction is intended to be the sole write path into postings
-
-The test in `post-transaction.integration.test.ts:183-196` is supposed to verify the sole-write-path invariant but explicitly accepts a FK violation (`23503`) and comments it away: "The 'sole write path' invariant is enforced by the double-entry CONSTRAINT TRIGGER ... not by revoking INSERT on postings." This is architecturally incorrect — the deferred constraint trigger fires at COMMIT time and only checks balance; it does not prevent a malicious or buggy application from inserting a valid balanced pair of postings directly, bypassing `post_transaction`'s validation logic (e.g., the non-empty-array check, the non-zero amount check, the direction validation, the idempotency guard).
-
-**Fix:** After the broad grant, also revoke INSERT on the append-only tables:
-
-```sql
--- After line 8, add:
-REVOKE INSERT ON TABLE postings FROM aprumo_app;
-REVOKE INSERT ON TABLE raw_events FROM aprumo_app;
+```javascript
+return new StartedGenericContainer(
+  container, host, inspectResult, boundPorts, name, waitStrategy,
+  this.autoRemove   // ← defaults to true, not reset by withReuse()
+);
 ```
 
-This requires a new migration (the committed `0002_grants.sql` is immutable). The test at `post-transaction.integration.test.ts:183` must be updated to expect `42501` (permission denied) instead of `23503`, and its comment must be corrected.
+`autoRemove` defaults to `true` and is not altered by `withReuse()`. Consequently, `container.stop()` resolves to `stopContainer({ remove: true, removeVolumes: true })`, which stops **and removes** the container. The next invocation of `APRUMO_TEST_REUSE=1 pnpm test` finds no reusable container and starts a fresh one — incurring the full cold-start penalty every run. The feature documented at line 20 ("Enable container reuse for local dev speed") does not work.
 
----
+Additionally, the SUMMARY for plan 02-14 reports "APRUMO_TEST_REUSE=1 path is idempotent: EXCEPTION duplicate_object absorbs 42710 on warm container" as a verified check — but this claim cannot be accurate if `teardown()` always destroys the container. The "warm container" scenario never materialises.
 
-### CR-02: TOCTOU race in `post_transaction` idempotency guard — concurrent duplicate calls throw `unique_violation` instead of returning silently
+**Fix:** Guard `stop()` in `teardown()` so it is not called when the container was started in reuse mode:
 
-**File:** `packages/core/migrations/0003_post_transaction.sql:45-51`
+```typescript
+let useReuseGlobal = false;  // capture at module scope
 
-**Issue:** The idempotency guard uses a SELECT-then-INSERT pattern with no concurrent-duplicate handler:
+export async function setup(project: { provide: (key: string, value: unknown) => void }) {
+  const useReuse = process.env.APRUMO_TEST_REUSE === "1";
+  useReuseGlobal = useReuse;
+  // ... rest unchanged
+}
 
-```sql
--- Lines 45-51
-SELECT id INTO v_tx_id
-  FROM transactions
- WHERE idempotency_key = p_idempotency_key;
-
-IF FOUND THEN
-  RETURN v_tx_id;   -- early return for known key
-END IF;
--- ... validation ...
-INSERT INTO transactions (id, idempotency_key, ...) VALUES (...);
+export async function teardown() {
+  // Do not stop a reused container — it is intentionally long-lived.
+  // Only stop containers we own (non-reuse mode).
+  if (container && !useReuseGlobal) {
+    await container.stop();
+  }
+}
 ```
 
-Two concurrent calls with the same `p_idempotency_key` can both execute the `SELECT`, both find `FOUND = false`, both pass the guard, and then race to the `INSERT`. The losing INSERT hits the `UNIQUE (idempotency_key)` constraint and raises SQLSTATE `23505` (`unique_violation`). There is no `EXCEPTION WHEN unique_violation` handler anywhere in the function. The function propagates the error to the caller.
-
-CLAUDE.md Invariant #3 mandates: "Duplicatas retornam 200 OK sem reprocessar — nunca falham com erro." This race violates that invariant under any concurrent load. The idempotency test in `post-transaction.integration.test.ts:73-96` is sequential (two `await` calls in series), so it does not catch the concurrent case.
-
-**Fix:** Add an exception handler that catches `unique_violation` and fetches the winning call's result:
-
-```sql
-DECLARE
-  v_tx_id      uuid;
-  v_signed_sum bigint := 0;
-  v_rec        posting_input;
-BEGIN
-  -- Idempotency guard (fast path — already committed)
-  SELECT id INTO v_tx_id
-    FROM transactions
-   WHERE idempotency_key = p_idempotency_key;
-
-  IF FOUND THEN
-    RETURN v_tx_id;
-  END IF;
-
-  -- ... validation logic unchanged ...
-
-  -- Atomic INSERT with race handler
-  v_tx_id := gen_random_uuid();
-  BEGIN
-    INSERT INTO transactions (id, idempotency_key, ts, description, source, metadata)
-    VALUES (v_tx_id, p_idempotency_key, now(), p_description, p_source, p_metadata);
-  EXCEPTION WHEN unique_violation THEN
-    -- Concurrent call won the INSERT race; return the winner's id.
-    SELECT id INTO v_tx_id
-      FROM transactions
-     WHERE idempotency_key = p_idempotency_key;
-    RETURN v_tx_id;
-  END;
-
-  -- Insert postings only when this call won the INSERT race.
-  FOREACH v_rec IN ARRAY p_postings LOOP
-    INSERT INTO postings (id, transaction_id, account_id, amount_cents, direction)
-    VALUES (gen_random_uuid(), v_tx_id, v_rec.account_id, v_rec.amount_cents, v_rec.direction);
-  END LOOP;
-
-  RETURN v_tx_id;
-END;
-```
-
-This requires a new migration since `0003_post_transaction.sql` is immutable.
+Alternatively, call `container.stop({ remove: false })` in reuse mode to stop the container without removing it, so the Ryuk reaper can later clean it up without interfering with reuse-across-runs semantics.
 
 ---
 
 ## Warnings
 
-### WR-01: `coverage-gate` CI job lacks `TESTCONTAINERS_RYUK_DISABLED=true` and has no `needs:` dependency
+### WR-01: Outer `catch` block conflates "Docker unavailable" with unexpected role-creation errors — misleading diagnostic
 
-**File:** `.github/workflows/ci.yml:74-97`
+**File:** `packages/core/tests/globalSetup.ts:65-71`
 
-**Issue:** The `integration-test` job (line 134) correctly sets `TESTCONTAINERS_RYUK_DISABLED: "true"` because GitHub-hosted Ubuntu runners' Docker daemon can fail when Ryuk tries to manage container cleanup. The `coverage-gate` job runs `pnpm vitest run --coverage`, which triggers the same testcontainers-backed integration tests (the root `vitest.config.ts` includes `packages/core/tests/globalSetup.ts`), but sets no env vars at all. On GitHub-hosted runners this produces intermittent Ryuk errors that fail the coverage job for reasons unrelated to code coverage.
+**Issue:** The outer `try/catch` that wraps `builder.start()` also implicitly wraps the role-creation block (because the inner `try/catch/finally` only handles its own errors; `adminSql.end()` in the `finally` clause could throw and propagate to the outer catch). The outer catch logs:
 
-Additionally, `coverage-gate` has no `needs:` clause, so it runs concurrently with `typecheck` and `build`. If `typecheck` fails, the coverage gate can still produce a green status for the run.
+```typescript
+console.warn(`[globalSetup] Docker unavailable — integration tests will be skipped: ${msg}`);
+project.provide("pgUri", "");
+```
 
-**Fix:**
-```yaml
-coverage-gate:
-  name: Coverage Gate
-  needs: [lint, typecheck, build]      # add dependency
-  runs-on: ubuntu-latest
-  ...
-  steps:
-    ...
-    - name: Run tests with coverage
-      run: pnpm vitest run --coverage
-      env:
-        DATABASE_URL: ""
-        TESTCONTAINERS_RYUK_DISABLED: "true"   # add Ryuk flag
+If `adminSql.end()` throws an unexpected error after `container.start()` succeeds and roles are created, the outer catch would fire, log a misleading "Docker unavailable" message, and provide an empty `pgUri` — causing every integration test to skip. The container was actually started and would be leaked (no teardown because `container` is set but `project.provide("pgUri", "")` sends all workers to the skip path, so no test will call `teardown()` — actually `teardown()` runs unconditionally from the globalSetup lifecycle, so the container would be stopped, but the `pgUri` would be empty and all tests would skip).
+
+The failure window is narrow (postgres-js connection cleanup failure) but the consequence — silently skipping all integration tests and reporting success — is disproportionate.
+
+**Fix:** Separate the catch scopes so "Docker unavailable" is identified correctly. The container-start failure and the role-creation failure are distinct failure modes:
+
+```typescript
+try {
+  container = await builder.start();
+} catch (err) {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.warn(`[globalSetup] Docker unavailable — integration tests will be skipped: ${msg}`);
+  project.provide("pgUri", "");
+  return;
+}
+
+// Container started — now pre-create roles.
+const pgUri = container.getConnectionUri();
+const adminSql = postgres(pgUri, { max: 1 });
+try {
+  await adminSql.unsafe(
+    `DO $$ BEGIN CREATE ROLE aprumo_app NOLOGIN NOSUPERUSER; EXCEPTION WHEN duplicate_object THEN NULL; END $$`
+  );
+  await adminSql.unsafe(
+    `DO $$ BEGIN CREATE ROLE aprumo_migration NOLOGIN NOSUPERUSER CREATEDB; EXCEPTION WHEN duplicate_object THEN NULL; END $$`
+  );
+} catch (roleErr) {
+  const roleMsg = roleErr instanceof Error ? roleErr.message : String(roleErr);
+  console.warn(`[globalSetup] Role pre-creation failed (non-fatal): ${roleMsg}`);
+} finally {
+  await adminSql.end();
+}
+
+project.provide("pgUri", pgUri);
 ```
 
 ---
 
-### WR-02: `reset.ts` URL regex is fragile for PostgreSQL connection strings with special characters in credentials
+### WR-02: RACE-01 is a vacuous test — passes with zero assertions when the race does not trigger
 
-**File:** `packages/core/src/db/reset.ts:39`
+**File:** `packages/core/tests/helpers/globalSetup.race.test.ts:83-100`
 
-**Issue:** The system database URL is derived by:
+**Issue:** The test body conditionally asserts:
+
 ```typescript
-const systemUrl = appDbUrl.replace(/\/[^/?]+(\?.*)?$/, "/postgres");
-```
-
-This replaces the last `/path-segment` (optionally followed by `?query`) with `/postgres`. If the `DATABASE_URL` password contains a `/` character (allowed in URL-encoded form and sometimes passed raw in local dev environments — e.g., `postgres://user:pa/ss@host:5432/appdb`), the regex matches inside the credential portion, not the database path. The resulting `systemUrl` would be malformed, causing a connection failure with no clear diagnostic.
-
-**Fix:** Use the `URL` class (already imported via `node:url` in this file) for reliable URL manipulation:
-```typescript
-const parsed = new URL(appDbUrl);
-parsed.pathname = "/postgres";
-const systemUrl = parsed.toString();
-```
-
----
-
-### WR-03: `account_balance.last_posting_id` has no FK constraint — balance worker cursor is unvalidated at the DB layer
-
-**File:** `packages/core/src/db/schema.ts:146` and `packages/core/migrations/0000_init_tables.sql:15`
-
-**Issue:** The `account_balance.last_posting_id` column is defined as a bare nullable UUID with no FK reference:
-```typescript
-// schema.ts line 146
-last_posting_id: uuid("last_posting_id"),
-```
-The DDL confirms no FK clause. A bug in the incremental balance worker that sets a wrong UUID as the cursor would be accepted by Postgres silently. The worker would then compute balances from an invalid anchor position, producing incorrect account balances without any database-level error.
-
-Since `postings` is append-only (no DELETE), a FK here carries no risk of cascade-delete side effects — only the correctness benefit of referential integrity enforcement.
-
-**Fix:** Add the FK reference in the Drizzle schema (this requires a new migration):
-```typescript
-last_posting_id: uuid("last_posting_id").references(() => postings.id),
-```
-If existing rows may have `NULL` in this column (they will in v0.1 before the worker runs), the FK can be added `NOT VALID` and validated later.
-
----
-
-### WR-04: `splitMigrationStatements` dollar-quote parser does not handle named dollar-quotes — future migrations using `$tag$...$tag$` will mis-split
-
-**File:** `packages/core/tests/helpers/applyMigrationsToSchema.ts:88-93`
-
-**Issue:** The dollar-quote state machine toggles `inDollarQuote` on every `$$` pair:
-```typescript
-if (!inLineComment && ch === "$" && next === "$") {
-  inDollarQuote = !inDollarQuote;
-  current += "$$";
-  i += 2;
-  continue;
+if (errors.length > 0) {
+  const hasDuplicateRole = errors.some(...);
+  expect(hasDuplicateRole, ...).toBe(true);
 }
 ```
 
-PostgreSQL also supports named dollar-quotes: `$tag$...$tag$` (e.g., `$function$`, `$body$`). A `$tag$` delimiter contains a `$$` substring at position 0 and its last character pair. The current parser does not distinguish tag boundaries — it treats any two adjacent `$` characters as a toggle. A migration using `$function$...$function$` would enter `inDollarQuote = true` on the first `$$` inside `$function$`, then exit it prematurely on the next `$$` pair encountered (possibly the opening of the matching `$function$` close-delimiter or another `$$` elsewhere). This produces incorrect statement boundaries.
+When the race does not trigger (both `DO/IF NOT EXISTS` blocks serialize due to OS scheduling), `errors.length === 0` and no `expect()` call is ever reached. Vitest marks the test as passed with zero assertions. This is documented by the comment at line 83: "If no errors occurred, the race did not trigger this run — that is OK." However, the consequence is that RACE-01 cannot serve as a regression gate: it cannot distinguish "race confirmed" from "both ran serially." It also cannot catch regressions where the error code changes (e.g., a future Postgres version uses a different SQLSTATE for pg_authid conflicts).
 
-No current migration uses named dollar-quotes (all use `$$`), so this is latent. It will silently fail when any future hand-written migration adopts named dollar-quote style.
+Furthermore, because `Promise.allSettled` is used and both connections share the same single-node test container, the two concurrent `DO` blocks frequently serialize at the Postgres lock level anyway — the race triggers only when both connections pass the `pg_roles` check simultaneously before either acquires the `pg_authid` row lock. On a lightly loaded test runner this is infrequent.
 
-**Fix:** Capture the full dollar-quote delimiter (tag) and require the same tag to close:
+**Fix:** Either accept RACE-01 as pure documentation (move to a comment or a `.skip`-marked test so CI does not count it as a passing assertion), or restructure it to guarantee the race surface. The guaranteed form would create the role from `sqlA`, then set up a `pg_advisory_lock`-based barrier to synchronise both connections at the `CREATE ROLE` decision point. Simpler option: mark the test as `it.skip` with a comment explaining it is a documentation artifact, not a regression gate:
+
 ```typescript
-// Replace the simple toggle with tag-aware matching:
-if (!inLineComment && ch === "$") {
-  // Find the closing $ of this potential dollar-quote delimiter
-  const closeIdx = sql.indexOf("$", i + 1);
-  if (closeIdx !== -1) {
-    const tag = sql.slice(i, closeIdx + 1); // e.g. "$$" or "$func$"
-    if (!inDollarQuote) {
-      // Check that the tag ends with $ and has no whitespace (PG rule)
-      if (/^\$[A-Za-z0-9_]*\$$/.test(tag)) {
-        currentDollarTag = tag;
-        inDollarQuote = true;
-        current += tag;
-        i = closeIdx + 1;
-        continue;
-      }
-    } else if (tag === currentDollarTag) {
-      inDollarQuote = false;
-      currentDollarTag = null;
-      current += tag;
-      i = closeIdx + 1;
-      continue;
-    }
-  }
-}
+it.skip("RACE-01: concurrent CREATE ROLE without EXCEPTION handling produces 23505 on pg_authid (documentation — non-deterministic, see RACE-02 for the regression gate)", async () => {
+  // ... body unchanged
+});
 ```
+
+This preserves the documentation value without creating false confidence from a vacuous pass.
 
 ---
 
 ## Info
 
-### IN-01: `console.log` / `console.error` in CLI scripts published as part of `@aprumo/core`
+### IN-01: `console.warn` in `globalSetup.ts` is consistent with prior convention but deviates from CLAUDE.md structured-logging mandate
 
-**File:** `packages/core/src/db/migrate.ts:159,163`, `packages/core/src/db/reset.ts:57,75`, `packages/core/src/db/seed.ts:43,61`
+**File:** `packages/core/tests/globalSetup.ts:57,69`
 
-**Issue:** CLAUDE.md mandates structured logging (pino) and prohibits `console.log` in production code. The CLI entry points in `migrate.ts`, `reset.ts`, and `seed.ts` use `console.log` and `console.error`. These are tooling/CLI scripts, not request handlers, so the risk is low — but they are part of the published package (`migrations/` is in `files`) and violate the project convention. They will also trigger the project's `console.log` audit hook.
+**Issue:** CLAUDE.md mandates structured logging (pino) and prohibits `console.log`/`console.error` in production code. The `console.warn` calls in `globalSetup.ts` were present before plan 02-14 (line 69 pre-existed; line 57 was added by plan 02-14). The file is test infrastructure, not published production code, so the risk is low. `console.warn` in `globalSetup.race.test.ts` (lines 39, 121) follows the same established pattern used throughout the test suite for Docker-unavailable skip guards.
 
-**Fix:** Route diagnostic output through `process.stdout.write` / `process.stderr.write`, or configure a pino logger with `destination: process.stdout` for these CLI scripts.
+This is not a new deviation introduced by plan 02-14 — it mirrors the existing convention. No action required for the new lines; the pre-existing `console.warn` at line 69 is outside the scope of this review.
 
----
-
-### IN-02: Test container uses Postgres 18 while CLAUDE.md specifies "Postgres 16+" as the supported version
-
-**File:** `packages/core/tests/setup/container.ts:5-6`
-
-**Issue:** The pinned image is `postgres:18-alpine@sha256:96d56f7f...`. Postgres 18 is not yet generally available. CLAUDE.md states "DB: Postgres 16+" as the supported version. Testing exclusively on an unreleased/pre-GA Postgres version while the documented minimum is 16 creates a gap: production deployments on Postgres 16 or 17 may encounter different behavior for `pg_authid` row locking, constraint trigger semantics, or plpgsql type resolution.
-
-**Fix:** Pin the test container to `postgres:16-alpine` (the documented minimum) to verify that the migration stack works on the minimum supported version, or add a Postgres version matrix analogous to the Node version matrix in the `test` CI job.
+**Fix:** No change required for test-only infrastructure files. If consistency with the CLAUDE.md mandate is desired for `globalSetup.ts`, route through `process.stderr.write` or use a minimal pino instance — but this is low priority.
 
 ---
 
-### IN-03: `migration-drift.test.ts` uses bare `__dirname` which is a CommonJS global not available in native ESM
-
-**File:** `packages/core/tests/infra/migration-drift.test.ts:18`
-
-**Issue:**
-```typescript
-const REPO_ROOT = resolve(__dirname, "../../../../");
-```
-The package is `"type": "module"` (ESM). Bare `__dirname` is not defined in native ESM. This currently works because Vitest's transpilation shim provides `__dirname`. If the compilation toolchain changes, or the test is run under a stricter ESM environment, this will throw `ReferenceError: __dirname is not defined`.
-
-All other test helpers correctly use the `fileURLToPath(import.meta.url)` pattern (`applyMigrationsToSchema.ts`, `createTestDb.ts`, `migrate.ts`, the two `.mjs` scripts).
-
-**Fix:**
-```typescript
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, "../../../../");
-```
-
----
-
-_Reviewed: 2026-05-23T00:00:00Z_
+_Reviewed: 2026-05-25T14:00:00Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
