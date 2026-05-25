@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-12-PLAN.md
-last_updated: "2026-05-23T12:44:28.597Z"
-last_activity: 2026-05-23
+stopped_at: Completed 02-14-PLAN.md
+last_updated: "2026-05-25T12:52:07.679Z"
+last_activity: 2026-05-25
 progress:
   total_phases: 9
   completed_phases: 2
-  total_plans: 20
-  completed_plans: 20
+  total_plans: 21
+  completed_plans: 21
   percent: 22
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-18)
 
 **Core value:** Ledger imutável, ACID estrito, double-entry, agnóstico a PSP — fonte da verdade contábil sobre tudo que se movimenta nos PSPs, sem custodiar dinheiro.
-**Current focus:** Phase 02 — schema-foundation-db-tooling
+**Current focus:** Phase 02 COMPLETE — ready for Phase 03 (api-layer-fastify)
 
 ## Current Position
 
-Phase: 02 (schema-foundation-db-tooling) — EXECUTING
-Plan: 3 of 13
-Status: Ready to execute
-Last activity: 2026-05-23
+Phase: 02 (schema-foundation-db-tooling) — COMPLETE
+Plan: 14 of 14
+Status: Phase 02 complete — all 14 plans executed
+Last activity: 2026-05-25
 
 Progress: [██████████] 100%
 
@@ -67,6 +67,7 @@ Progress: [██████████] 100%
 | Phase 02-schema-foundation-db-tooling P10 | 15min | 2 tasks | 2 files |
 | Phase 02-schema-foundation-db-tooling P12 | 180 | 2 tasks | 4 files |
 | Phase 02-schema-foundation-db-tooling P13 | 97s | 2 tasks | 1 files |
+| Phase 02-schema-foundation-db-tooling P14 | 12min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -106,6 +107,8 @@ Recent decisions affecting current work:
 - [Phase 02 P12]: GRANT USAGE ON SCHEMA to aprumo_migration required for SECURITY DEFINER PL/pgSQL compilation in test schema
 - [Phase 02 P12]: readWithRetry() 10-attempt exponential backoff resolves macOS APFS ENOENT race under concurrent I/O
 - [Phase ?]: D-40 digest pin
+- [Phase 02 P14]: D-50: globalSetup pre-creates cluster-global roles with PL/pgSQL EXCEPTION duplicate_object (not IF NOT EXISTS) — atomic idempotency for cold and reuse-mode containers
+- [Phase 02 P14]: D-51: RACE-02 targets shared inject('pgUri') container to test actual fix boundary; RACE-01 targets ephemeral container to document raw race without savepoint masking
 
 ### Pending Todos
 
@@ -131,6 +134,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-23T12:44:24.247Z
-Stopped at: Completed 02-12-PLAN.md
+Last session: 2026-05-25T12:52:07.671Z
+Stopped at: Completed 02-14-PLAN.md
 Resume file: None
