@@ -1,9 +1,9 @@
 ---
-status: complete
+status: diagnosed
 phase: 02-schema-foundation-db-tooling
-source: [02-01-SUMMARY.md, 02-02-SUMMARY.md, 02-03-SUMMARY.md, 02-04-SUMMARY.md, 02-05-SUMMARY.md, 02-06-SUMMARY.md, 02-07-SUMMARY.md, 02-08-SUMMARY.md, 02-09-SUMMARY.md, 02-10-SUMMARY.md, 02-11-SUMMARY.md]
+source: [02-01-SUMMARY.md, 02-02-SUMMARY.md, 02-03-SUMMARY.md, 02-04-SUMMARY.md, 02-05-SUMMARY.md, 02-06-SUMMARY.md, 02-07-SUMMARY.md, 02-08-SUMMARY.md, 02-09-SUMMARY.md, 02-10-SUMMARY.md, 02-11-SUMMARY.md, 02-12-SUMMARY.md, 02-13-SUMMARY.md]
 started: 2026-05-23T02:30:44Z
-updated: 2026-05-23T03:07:40Z
+updated: 2026-05-25T09:20:00Z
 ---
 
 ## Current Test
@@ -31,7 +31,7 @@ result: pass
 ### 5. Integration Tests Pass (testcontainers)
 expected: `pnpm --filter @aprumo/core test` spins up postgres:18-alpine via testcontainers globalSetup, all integration tests pass (schema-shape, revoke, post-transaction, constraint-trigger, audit-triggers, migration-drift).
 result: issue
-reported: "6 test suites FAIL, 42 tests SKIPPED. Drizzle migrate raises PostgresError 42P01 'relation \"public.accounts\" does not exist' on ALTER TABLE account_balance ADD CONSTRAINT account_balance_account_id_accounts_id_fk FOREIGN KEY (account_id) REFERENCES public.accounts(id). Failed suites: e2e/migration-e2e, schema/audit-triggers, schema/constraint-trigger, schema/post-transaction, schema/revoke, schema/schema-shape. Each also throws TypeError 'Cannot read properties of undefined (reading cleanup)' in afterAll because createTestDb never returned."
+reported: "Re-tested 2026-05-25 after 02-12 (FK schema rewrite) merged. First gap CLOSED — applyMigrationsToSchema rewrites public. qualifier per schema. NEW failure surfaced: 4 suites FAIL with PostgresError 'duplicate key value violates unique constraint pg_authid_rolname_index' on CREATE ROLE in 0001_roles.sql. Cascade error: db.cleanup undefined in afterAll. Failed suites: tests/schema/audit-triggers, tests/schema/constraint-trigger, tests/schema/revoke, tests/schema/schema-shape. Tests passed: 32, skipped: 31."
 severity: blocker
 
 ### 6. Migration Drift Check Passes Clean
@@ -72,29 +72,42 @@ issues: 1
 pending: 0
 skipped: 0
 blocked: 0
+note: "Test 5 retested 2026-05-25. Gap-1 (FK schema) closed by 02-12. Gap-2 (CREATE ROLE race) new blocker."
 
 ## Gaps
 
-- truth: "pnpm --filter @aprumo/core test passes via testcontainers globalSetup with all integration suites green"
+- truth: "pnpm --filter @aprumo/core test passes via testcontainers globalSetup with all integration suites green (FK schema gap, closed by 02-12)"
+  status: closed
+  resolved_by: "02-12-PLAN.md commits 45c0cd8 (RED) → 79fd21e (GREEN) → fec9936 (docs). applyMigrationsToSchema rewrites public. qualifier per test schema before exec. Verified 2026-05-25 — FK error gone."
+  reason: "User reported: 6 test suites FAIL, 42 tests SKIPPED. Drizzle migrate raises PostgresError 42P01 'relation public.accounts does not exist' when adding FK on account_balance."
+  severity: blocker
+  test: 5
+  debug_session: "inline-diagnosis-2026-05-23"
+
+- truth: "pnpm --filter @aprumo/core test passes via testcontainers globalSetup with all integration suites green (CREATE ROLE race)"
   status: failed
-  reason: "User reported: 6 test suites FAIL, 42 tests SKIPPED. Drizzle migrate raises PostgresError 42P01 'relation public.accounts does not exist' when adding FK on account_balance. Migration 0000_init_tables.sql hardcodes REFERENCES public.accounts but createTestDb migrates into per-file isolated schema (test_xxx). FK target schema mismatch — public.accounts never created in test pool's search_path. Cascading: each suite's afterAll then throws TypeError 'Cannot read properties of undefined (reading cleanup)' because db handle never returned from createTestDb."
+  reason: "Re-tested 2026-05-25 after 02-12 merged. 4 suites still FAIL — new root cause surfaced: parallel test files race on CREATE ROLE in 0001_roles.sql. pg_authid is cluster-global; IF NOT EXISTS guard is non-atomic across sessions. Failed: tests/schema/audit-triggers, constraint-trigger, revoke, schema-shape. Tests/helpers/applyMigrationsToSchema WR-02 also affected. 32 pass, 31 skipped."
   severity: blocker
   test: 5
   artifacts:
-    - path: "packages/core/migrations/0000_init_tables.sql"
-      issue: "FK on account_balance references public.accounts — incompatible with per-schema test isolation"
-    - path: "packages/core/tests/helpers/createTestDb.ts"
-      issue: "Uses migrate() with migrationsSchema=schema but migration DDL hardcodes public schema in FK target"
+    - path: "packages/core/migrations/0001_roles.sql"
+      issue: "DO block with IF NOT EXISTS check then CREATE ROLE — non-atomic across parallel sessions"
+    - path: "packages/core/tests/globalSetup.ts"
+      issue: "Starts container once but does not pre-create cluster-global roles; per-file applyMigrationsToSchema races on first run"
+    - path: "packages/core/tests/helpers/applyMigrationsToSchema.ts"
+      issue: "No exclusion or short-circuit for cluster-global DDL (CREATE ROLE) — applies 0001_roles.sql per schema in parallel"
   missing:
-    - "Either: regenerate 0000_init_tables.sql so FK uses schema-relative table name (drizzle-kit pgSchema), OR rewrite createTestDb to set search_path before migrate AND strip the explicit public. qualifier from generated FK DDL, OR migrate into public schema and use per-database isolation instead of per-schema"
+    - "Pre-create aprumo_app + aprumo_migration roles in globalSetup before any worker fork starts"
   root_cause: |
-    drizzle-kit generates FK DDL with literal `"public"."tablename"` qualifier in REFERENCES clauses (see 0000_init_tables.sql:113-117). CREATE TABLE statements have no schema qualifier — search_path resolves them into test_xxx schema correctly. But FK ALTER TABLE tries to bind to literal public.accounts which never exists in the test pool (only test_xxx.accounts does). createTestDb.ts:66 calls drizzle's stock migrate() which applies SQL verbatim — migrationsSchema option only isolates __drizzle_migrations tracking table, it does NOT rewrite migration text. Cascade error: when migrate() throws, the function exits before returning the {app, migration, schema, cleanup} handle, so afterAll's `await db.cleanup()` fails with "Cannot read properties of undefined (reading cleanup)".
+    Migration 0001_roles.sql uses `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='aprumo_app') THEN CREATE ROLE aprumo_app … END IF; END $$`. The check and the CREATE are separate statements within the DO block; Postgres does not hold an exclusive lock on pg_authid across them. When N test files run applyMigrationsToSchema in parallel against an empty cluster, multiple sessions observe rolname missing, then both attempt CREATE ROLE → second one hits unique violation on pg_authid_rolname_index (SQLSTATE 23505). The cascade `TypeError: Cannot read properties of undefined (reading 'cleanup')` is the same pattern as gap-1: when applyMigrationsToSchema throws, createTestDb returns before the handle is built, so afterAll's `db.cleanup()` blows up.
   recommended_fix: |
-    Replace drizzle's stock migrate() in createTestDb.ts with a custom apply loop that string-replaces `"public".` → `"${schema}".` before executing each statement. Migration file content stays unchanged (preserves migration-hashes.json drift gate from Plan 09). Production path (src/db/migrate.ts runMigrations) is unaffected because it runs against the real public schema where the FK target legitimately exists. Steps:
-      1. In packages/core/tests/helpers/createTestDb.ts, drop the `import { migrate } from "drizzle-orm/postgres-js/migrator"` and the `drizzle(migrationSql)` wrapper.
-      2. Replicate the readNonSeedMigrations() logic from src/db/migrate.ts (or export it from there and import).
-      3. For each migration, read SQL → run `.replaceAll('"public".', `"${schema}".`)` → split on `--> statement-breakpoint` → execute each via migrationSql.unsafe(trimmed).
-      4. Track applied hashes in `${schema}.__drizzle_migrations` (not drizzle schema — keep tracker scoped per-test).
-      5. Re-run `pnpm --filter @aprumo/core test` — all 42 currently-skipped tests should execute.
-    Alternative (heavier, cleaner long-term): switch from per-schema to per-database isolation — CREATE DATABASE per test file, run unmodified migrations into its public schema. Trade-off: ~200ms slower startup per file, but zero migration text coupling.
-  debug_session: "inline-diagnosis-2026-05-23"
+    Pre-create cluster-global roles once in globalSetup, immediately after container.start() resolves. globalSetup runs before any worker fork — by the time per-file applyMigrationsToSchema reaches 0001_roles.sql, the IF NOT EXISTS check short-circuits, no CREATE attempted, no race. Steps:
+      1. In packages/core/tests/globalSetup.ts, after `container = await builder.start();`, open a single admin connection and exec:
+           CREATE ROLE aprumo_app NOLOGIN NOSUPERUSER;
+           CREATE ROLE aprumo_migration NOLOGIN NOSUPERUSER CREATEDB;
+         Wrap each in DO/EXCEPTION duplicate_object so reuse-mode (.withReuse) doesn't fail on second start.
+      2. Close admin connection. Provide pgUri to workers as today.
+      3. No change to migration files (hash gate intact). No change to applyMigrationsToSchema. No change to production migrate path.
+      4. Add a failing test FIRST in tests/globalSetup.test.ts (or extend applyMigrationsToSchema.test.ts WR-02) that exercises parallel apply against a fresh container WITHOUT pre-creation — assert it currently throws 23505 (RED). Implement fix (GREEN). Re-assert.
+      5. Run `pnpm --filter @aprumo/core test` — expect all 9 suites green, 31 currently-skipped tests execute.
+  debug_session: "inline-diagnosis-2026-05-25"
