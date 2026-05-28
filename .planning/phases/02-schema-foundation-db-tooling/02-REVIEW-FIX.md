@@ -98,3 +98,57 @@ status: all_fixed
 _Fixed: 2026-05-23T16:30:00Z_
 _Fixer: Claude (gsd-code-fixer)_
 _Iteration: 1_
+
+---
+
+# Phase 02 Plan 14 Addendum: Code Review Fix Report (Iteration 2)
+
+---
+fixed_at: 2026-05-28T21:45:00Z
+review_path: .planning/phases/02-schema-foundation-db-tooling/02-REVIEW.md
+iteration: 2
+findings_in_scope: 3
+fixed: 3
+skipped: 0
+status: all_fixed
+---
+
+**Fixed at:** 2026-05-28T21:45:00Z
+**Source review:** `.planning/phases/02-schema-foundation-db-tooling/02-REVIEW.md` (addendum — plan 02-14 delta)
+**Iteration:** 2
+
+**Summary:**
+- Findings in scope: 3 (1 Critical, 2 Warning; Info skipped per scope)
+- Fixed: 3
+- Skipped: 0
+
+## Fixed Issues (Iteration 2)
+
+### CR-01: teardown() destroys container when APRUMO_TEST_REUSE=1 — withReuse() was silently inoperative
+
+**Files modified:** `packages/core/tests/globalSetup.ts`
+**Commit:** `d269a69`
+**Applied fix:** Added module-scope `let useReuseGlobal = false` flag. In `setup()`, `useReuseGlobal = useReuse` is set immediately after reading the env var. In `teardown()`, the `container.stop()` call is now guarded by `!useReuseGlobal` — reuse-mode containers are intentionally long-lived and are not stopped between runs. Non-reuse containers are stopped as before.
+
+### WR-01: Outer catch block conflated Docker-unavailability with role-creation errors — misleading diagnostic
+
+**Files modified:** `packages/core/tests/globalSetup.ts`
+**Commit:** `d269a69` (combined with CR-01 — same file, same commit)
+**Applied fix:** Split the single outer `try/catch` into two independent `try/catch` blocks. The first wraps only `builder.start()` and returns early (with `project.provide("pgUri", "")`) on Docker failure. The role-creation block now runs after the container-start scope closes; `adminSql.end()` errors cannot escape to the Docker-unavailability path. Each failure mode is now independently diagnosed.
+
+### WR-02: RACE-01 was a vacuous test — passed with zero assertions when race did not trigger
+
+**Files modified:** `packages/core/tests/helpers/globalSetup.race.test.ts`
+**Commit:** `ac5abbe`
+**Applied fix:** Changed `it(...)` to `it.skip(...)` for RACE-01 and appended `(documentation — non-deterministic, see RACE-02 for the regression gate)` to the test name. Test body is preserved verbatim for documentation value. RACE-02 remains active as the real regression gate confirming roles are pre-created before any worker fork.
+
+## Verification
+
+- `pnpm --filter @aprumo/core typecheck`: exit 0 (no type errors)
+- `pnpm --filter @aprumo/core test --run`: exit 0 (65 tests passed, 10 test files)
+
+---
+
+_Fixed: 2026-05-28T21:45:00Z_
+_Fixer: Claude (gsd-code-fixer)_
+_Iteration: 2_
