@@ -32,7 +32,7 @@ describe("globalSetup role pre-creation race", () => {
     await ephemeralContainer?.stop();
   });
 
-  it("RACE-01: concurrent CREATE ROLE without EXCEPTION handling produces 23505 on pg_authid", async () => {
+  it.skip("RACE-01: concurrent CREATE ROLE without EXCEPTION handling produces 23505 on pg_authid (documentation — non-deterministic, see RACE-02 for the regression gate)", async () => {
     // Skip if Docker is unavailable (same guard as other integration tests).
     const sharedPgUri = inject("pgUri");
     if (!sharedPgUri) {
