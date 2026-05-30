@@ -65,4 +65,26 @@ describe("withRetryOnSerializationFailure", () => {
     // Called exactly once — no retry for non-40001 errors
     expect(fn).toHaveBeenCalledTimes(1);
   });
+
+  it("retries when 40001 is wrapped in cause.code (Drizzle DrizzleQueryError shape)", async () => {
+    // Drizzle's DrizzleQueryError wraps the underlying PG error in err.cause.
+    // The wrapper itself has no `.code` property — SQLSTATE 40001 is on `err.cause.code`.
+    // This mimics what DrizzleQueryError looks like when an intra-transaction query fails
+    // with a serialization_failure (SQLSTATE 40001).
+    const pgError = Object.assign(new Error("serialization failure"), { code: "40001" });
+    const drizzleWrapped = Object.assign(new Error("Drizzle query error"), {
+      // No top-level .code — this is the distinguishing shape of DrizzleQueryError
+      cause: pgError,
+    });
+    const fn = vi.fn().mockRejectedValueOnce(drizzleWrapped).mockResolvedValueOnce("ok");
+
+    const promise = withRetryOnSerializationFailure(fn);
+    // Advance fake timers past the first retry backoff (50ms)
+    await vi.advanceTimersByTimeAsync(50);
+    const result = await promise;
+
+    expect(result).toBe("ok");
+    // Must have retried: called twice (first attempt throws, second succeeds)
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
 });
