@@ -45,10 +45,10 @@
 
 - [x] **API-01**: Fastify 5+ configurado com `coerceTypes: false`, JSON Schema validation, `@fastify/swagger`
 - [x] **API-02**: Serializer custom de BigInt → JSON string em todas as respostas (`amount_cents`, IDs); `JSON.stringify(bigint)` nunca permitido cru
-- [ ] **API-03**: `POST /transactions` aceita postings + `Idempotency-Key` header; chama `post_transaction()`; retorna 201 com transaction + postings persistidos
-- [ ] **API-04**: `POST /transactions` rejeita postings que não somam zero por transaction_id (erro 422 da CONSTRAINT TRIGGER mapeado)
-- [ ] **API-05**: Idempotência: `Idempotency-Key` duplicada retorna 200 com tx original (UNIQUE + ON CONFLICT pattern), nunca reprocessa
-- [ ] **API-06**: `GET /transactions/:id` retorna transaction + postings ordenados
+- [x] **API-03**: `POST /transactions` aceita postings + `Idempotency-Key` header; chama `post_transaction()`; retorna 201 com transaction + postings persistidos
+- [x] **API-04**: `POST /transactions` rejeita postings que não somam zero por transaction_id (erro 422 da CONSTRAINT TRIGGER mapeado)
+- [x] **API-05**: Idempotência: `Idempotency-Key` duplicada retorna 200 com tx original (UNIQUE + ON CONFLICT pattern), nunca reprocessa
+- [x] **API-06**: `GET /transactions/:id` retorna transaction + postings ordenados
 - [ ] **API-07**: `POST /accounts` cria conta com `type` (asset/liability/revenue/expense/equity) + `metadata`
 - [ ] **API-08**: `GET /accounts/:id` retorna metadata + saldo materializado de `account_balance`
 - [x] **API-09**: `GET /accounts/:id/postings?cursor=&limit=` retorna extrato paginado por `posting.id` desc
@@ -217,10 +217,10 @@ Mapped by gsd-roadmapper on 2026-05-18. All 104 v1 requirements mapped to phases
 | FND-18 | Phase 2 | Complete |
 | API-01 | Phase 3 | Complete |
 | API-02 | Phase 3 | Complete |
-| API-03 | Phase 3 | Pending |
-| API-04 | Phase 3 | Pending |
-| API-05 | Phase 3 | Pending |
-| API-06 | Phase 3 | Pending |
+| API-03 | Phase 3 | Complete |
+| API-04 | Phase 3 | Complete |
+| API-05 | Phase 3 | Complete |
+| API-06 | Phase 3 | Complete |
 | API-07 | Phase 3 | Pending |
 | API-08 | Phase 3 | Pending |
 | API-09 | Phase 3 | Complete |
