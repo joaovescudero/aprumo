@@ -86,6 +86,25 @@ describe("INF-01..05: Monorepo scaffold", () => {
       const suspicious = rules?.suspicious as Record<string, unknown> | undefined;
       expect(suspicious?.noExplicitAny).toBe("error");
     });
+
+    // INF-03 (PARTIAL gap): each package biome.json must exist and extend root config via "//"
+    const PACKAGES = ["core", "connector-base", "connector-starkbank", "webhooks"] as const;
+
+    for (const pkg of PACKAGES) {
+      it(`packages/${pkg}/biome.json exists`, () => {
+        const biomePath = path.join(REPO_ROOT, "packages", pkg, "biome.json");
+        expect(fs.existsSync(biomePath), `packages/${pkg}/biome.json must exist`).toBe(true);
+      });
+
+      it(`packages/${pkg}/biome.json contains "extends": "//"`, () => {
+        const biomePath = path.join(REPO_ROOT, "packages", pkg, "biome.json");
+        const config = readJson(biomePath) as Record<string, unknown>;
+        expect(
+          config.extends,
+          `packages/${pkg}/biome.json must contain "extends": "//" to inherit root Biome config`,
+        ).toBe("//");
+      });
+    }
   });
 
   describe("INF-01: Node version pinning", () => {
