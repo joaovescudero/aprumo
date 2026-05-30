@@ -1,10 +1,11 @@
 ---
 phase: 1
 slug: monorepo-scaffold-ci-dev-security
-status: draft
+status: validated
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-05-22
+updated: 2026-05-29
 ---
 
 # Phase 1 — Validation Strategy
@@ -41,20 +42,20 @@ created: 2026-05-22
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 1-00-01 | 00 | 0 | INF-01..05 | T-1-01, T-1-02 | Infra assertions fail RED until Wave 1 creates scaffold | scaffold | `pnpm test -- --run tests/scaffold/infra.test.ts` | ❌ W0 | ⬜ pending |
-| 1-00-01b | 00 | 0 | INF-04 | T-1-02 | Coverage gate exits non-zero when core coverage is below 90% | scaffold | `pnpm test -- --run tests/scaffold/coverage-gate-fires.test.ts` | ❌ W0 | ⬜ pending |
-| 1-00-02 | 00 | 0 | INF-06, INF-07, INF-10 | T-1-01, T-1-SC | CI gate stubs fail RED until gitleaks/.gitignore/.changeset exist | scaffold | `pnpm test -- --run tests/ci/` | ❌ W0 | ⬜ pending |
-| 1-01-01 | 01 | 1 | INF-01 | T-1-02 | pnpm workspace resolves; engine-strict blocks wrong Node version | integration | `pnpm install && pnpm -r list --depth=0` | ❌ W0 | ⬜ pending |
-| 1-01-02 | 01 | 1 | INF-02, INF-03, INF-07 | T-1-01, T-1-02 | tsconfig.base.json strict; biome noExplicitAny; .gitignore blocks .env* | unit | `pnpm typecheck && pnpm lint && grep -c '.env' .gitignore` | ❌ W0 | ⬜ pending |
-| 1-02-01 | 02 | 1 | INF-01, INF-04 | T-1-02, T-1-SC | All 4 packages resolve; vitest pool:forks; biome extends "//"; tsconfig extends base | integration | `pnpm -r list --depth=0 && pnpm typecheck` | ❌ W0 | ⬜ pending |
-| 1-02-02 | 02 | 1 | INF-01, INF-04 | T-1-02 | Full pipeline (lint, typecheck, build, test) passes on stubs | integration | `pnpm lint && pnpm typecheck && pnpm build && pnpm test` | ❌ W0 | ⬜ pending |
-| 1-03-01 | 03 | 2 | INF-05, INF-06 | T-1-01, T-1-03, T-1-SC | gitleaks blocks EC key; lefthook wired; .gitleaks.toml has starkbank-private-key rule | unit | `gitleaks version && cat lefthook.yml \| grep -c gitleaks && cat .gitleaks.toml \| grep -c starkbank-private-key` | ❌ W0 | ⬜ pending |
-| 1-03-02 | 03 | 2 | INF-05 | T-1-03 | commitlint rejects non-Conventional Commit; accepts valid format | unit | `echo 'bad message' \| pnpm commitlint; echo 'feat(scope): ok' \| pnpm commitlint` | ❌ W0 | ⬜ pending |
-| 1-04-01 | 04 | 2 | INF-08, INF-10 | T-1-01, T-1-03, T-1-SC | setup action has no corepack enable; ci.yml has 7 jobs; gitleaks-history uses .gitleaks.toml | ci | `grep -c 'gitleaks-history' .github/workflows/ci.yml && grep -c 'corepack enable' .github/actions/setup/action.yml \|\| echo 0` | ❌ W0 | ⬜ pending |
-| 1-04-02 | 04 | 2 | INF-08, INF-09 | T-1-04 | release.yml has id-token:write (D-23a); D-23b deferred comment present | ci | `grep -c 'id-token: write' .github/workflows/release.yml` | ❌ W0 | ⬜ pending |
-| 1-05-01 | 05 | 3 | INF-09, INF-10 | T-1-04 | .changeset/config.json has correct fields; changeset:check npm script wired | unit | `node -e "const c=require('./.changeset/config.json'); console.log(c.access, c.updateInternalDependencies, c.baseBranch)"` | ❌ W0 | ⬜ pending |
-| 1-06-01 | 06 | 3 | INF-01..10 | T-1-01, T-1-03 | OSS governance docs exist; all automated Wave 0 tests GREEN | integration | `ls README.md SECURITY.md CONTRIBUTING.md CODE_OF_CONDUCT.md && pnpm test -- --run` | ❌ W0 | ⬜ pending |
-| 1-06-02 | 06 | 3 | INF-01..10 | T-1-03, T-1-04 | Branch protection + PVR enabled (human); CI green on GitHub | e2e | Human checkpoint — see Plan 06 Task 2 instructions | n/a | ⬜ pending |
+| 1-00-01 | 00 | 0 | INF-01..05 | T-1-01, T-1-02 | Infra assertions green; monorepo scaffold present | scaffold | `pnpm vitest run --project=root-tests tests/scaffold/infra.test.ts` | ✅ | ✅ green |
+| 1-00-01b | 00 | 0 | INF-04 | T-1-02 | Coverage gate exits non-zero on under-covered code (isolated temp project — decoupled from core's real coverage) | unit | `pnpm vitest run --project=root-tests tests/scaffold/coverage-gate-fires.test.ts` | ✅ | ✅ green |
+| 1-00-02 | 00 | 0 | INF-06, INF-07, INF-10 | T-1-01, T-1-SC | CI gate tests green (gitleaks/.gitignore/.changeset present) | scaffold | `pnpm vitest run --project=root-tests tests/ci/` | ✅ | ✅ green |
+| 1-01-01 | 01 | 1 | INF-01 | T-1-02 | pnpm workspace resolves; engine-strict blocks wrong Node version | integration | `pnpm install && pnpm -r list --depth=0` | ✅ | ✅ green |
+| 1-01-02 | 01 | 1 | INF-02, INF-03, INF-07 | T-1-01, T-1-02 | tsconfig strict; biome noExplicitAny + per-package `extends "//"`; .gitignore blocks .env* | unit | `pnpm vitest run --project=root-tests tests/scaffold/infra.test.ts` | ✅ | ✅ green |
+| 1-02-01 | 02 | 1 | INF-01, INF-04 | T-1-02, T-1-SC | All 4 packages resolve; vitest pool:forks; biome extends "//"; tsconfig extends base | integration | `pnpm -r list --depth=0 && pnpm typecheck` | ✅ | ✅ green |
+| 1-02-02 | 02 | 1 | INF-01, INF-04 | T-1-02 | Full pipeline (lint, typecheck, build, test) passes | integration | `pnpm lint && pnpm typecheck && pnpm build && pnpm test` | ✅ | ✅ green |
+| 1-03-01 | 03 | 2 | INF-05, INF-06 | T-1-01, T-1-03, T-1-SC | gitleaks blocks EC key; lefthook wired; .gitleaks.toml has starkbank-private-key rule | unit | `pnpm vitest run --project=root-tests tests/ci/secret-scan.test.ts` | ✅ | ✅ green |
+| 1-03-02 | 03 | 2 | INF-05 | T-1-03 | commitlint rejects non-Conventional; accepts valid; lefthook commit-msg hook wired | unit | `pnpm vitest run --project=root-tests tests/ci/commitlint.test.ts` | ✅ | ✅ green |
+| 1-04-01 | 04 | 2 | INF-08, INF-10 | T-1-01, T-1-03, T-1-SC | ci.yml 7 jobs; Node 22/24 matrix; gitleaks fetch-depth:0; changeset-check PR-guarded; no corepack enable | ci | `pnpm vitest run --project=root-tests tests/ci/github-actions.test.ts` | ✅ | ✅ green |
+| 1-04-02 | 04 | 2 | INF-08, INF-09 | T-1-04 | release.yml has id-token:write (D-23-revised → GitHub Packages publish) | ci | `grep -c 'id-token: write' .github/workflows/release.yml` | ✅ | ✅ green |
+| 1-05-01 | 05 | 3 | INF-09, INF-10 | T-1-04 | .changeset/config.json fields; changeset:check script; changeset-required.sh wires `--since=main` | unit | `pnpm vitest run --project=root-tests tests/ci/changeset-gate.test.ts` | ✅ | ✅ green |
+| 1-06-01 | 06 | 3 | INF-01..10 | T-1-01, T-1-03 | OSS governance docs exist; all automated tests GREEN | integration | `ls README.md SECURITY.md CONTRIBUTING.md CODE_OF_CONDUCT.md && pnpm test -- --run` | ✅ | ✅ green |
+| 1-06-02 | 06 | 3 | INF-01..10 | T-1-03, T-1-04 | Branch protection + PVR enabled (human); CI green on GitHub | e2e | Human checkpoint — see Manual-Only table + `01-HUMAN-UAT.md` | n/a | ⬜ pending (human) |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -80,18 +81,44 @@ created: 2026-05-22
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
 | Fresh clone → `pnpm install` succeeds on Node 22 AND Node 24 | INF-01, INF-02 | Requires actual fresh git clone in clean directory (cannot be self-tested inside the repo) | `cd /tmp && git clone <url> apruma-fresh && cd apruma-fresh && nvm use 22 && pnpm install && pnpm test && nvm use 24 && pnpm install && pnpm test` — both must exit 0 |
-| GitHub Actions matrix runs on push/PR | INF-09 | Requires actual GitHub-side execution; cannot be fully simulated by `act` | Push branch, open PR, confirm Actions UI shows lint+typecheck+test+coverage jobs green on both Node 22 and Node 24 |
+| GitHub Actions matrix runs green on push/PR (CI smoke) | INF-08 | Requires actual GitHub-side execution; cannot be fully simulated by `act` | Push branch, open PR, confirm Actions UI shows all 7 jobs green on both Node 22 and Node 24. NOTE: apply CR-01 fix (`.test.ts` allowlist on `starkbank-private-key` in `.gitleaks.toml`) first, else `gitleaks-history` self-fires on `tests/ci/secret-scan.test.ts` |
+| Pre-commit hook blocks EC private key commit (end-to-end) | INF-05, INF-06 | git hook chain (lefthook → gitleaks subprocess → exit propagation) requires a live staged-file commit in the working tree | Create a repo file containing `-----BEGIN EC PRIVATE KEY-----`, `git add` it, attempt `git commit` — commit must be rejected non-zero with gitleaks output |
+| GitHub branch protection on `main` (D-14) | INF-08 | GitHub Settings action; no API path without admin-scope PAT | Settings → Branches: require PR + 1 review + required status checks (lint, typecheck, build, test (22), test (24), coverage-gate, gitleaks-history) + linear history |
+| GitHub Private Vulnerability Reporting (D-16) | INF-08 | Repository Security-tab toggle requiring repo admin | Security tab shows "Private vulnerability reporting enabled" |
 | `pnpm changeset` produces a valid changeset file interactively | INF-10 | Interactive CLI prompt | Run `pnpm changeset`, answer prompts, assert file appears in `.changeset/*.md` with valid frontmatter |
 
 ---
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags (`--run` enforced)
-- [ ] Feedback latency < 60s for quick command
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags (`--run` enforced)
+- [x] Feedback latency < 60s for quick command
 - [x] `nyquist_compliant: true` set in frontmatter (per-task map fully populated)
 
-**Approval:** pending
+**Approval:** automated validation complete (62/62 root-suite tests green). Human UAT pending — see Manual-Only table + `01-HUMAN-UAT.md` (CI smoke, pre-commit E2E, branch protection, PVR).
+
+---
+
+## Validation Audit 2026-05-29
+
+Retroactive Nyquist audit (State A). 5 automatable gaps found and resolved; the broken INF-04 guard test reworked to be decoupled from `@aprumo/core`'s evolving real coverage.
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 5 |
+| Resolved | 5 |
+| Escalated | 0 |
+
+**Gaps resolved:**
+- INF-04 — `tests/scaffold/coverage-gate-fires.test.ts` reworked: runs vitest `--coverage` against an **isolated temp project** with a 0%-covered source + 90% threshold, asserting non-zero exit + "does not meet". Previously a false-negative FAIL (Phase 2 covered code made the old core-targeted run exit 0).
+- INF-03 — `tests/scaffold/infra.test.ts` extended: each of the 4 `packages/*/biome.json` exists and contains `"extends": "//"`.
+- INF-05 — new `tests/ci/commitlint.test.ts`: rejects non-Conventional message, accepts valid, asserts `lefthook.yml` commit-msg hook wires commitlint.
+- INF-08 — new `tests/ci/github-actions.test.ts`: asserts `ci.yml` 7 jobs, Node 22/24 matrix, gitleaks `fetch-depth: 0`, no `corepack enable`.
+- INF-10 — `github-actions.test.ts` asserts `changeset-check` PR-guard; `tests/ci/changeset-gate.test.ts` extended for `scripts/changeset-required.sh` (exists, executable, wires `--since=main`).
+
+**Result:** `pnpm vitest run --project=root-tests` → 62 passed / 0 failed. All INF-01..10 now have automated coverage; remaining items are inherently manual (GitHub UI / live git-hook / interactive CLI).
+
+**Out of scope (tracked elsewhere):** CR-01 gitleaks self-fire, CR-02 SHA-pinning, CR-03 gitleaks checksum — see `01-REVIEW.md`.
