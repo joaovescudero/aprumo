@@ -1,14 +1,16 @@
 /**
  * INF-04: Coverage gate fires on 0%-covered code
  *
- * Wave 0 RED test — verifies that the coverage gate actually fires (non-zero exit)
- * when packages/core line coverage is below 90%.
+ * Reworked for adversarial correctness: runs vitest --coverage in an isolated
+ * temp directory (NOT against @aprumo/core's real, evolving coverage) so the
+ * test remains stable regardless of how much coverage Phase 2+ adds to core.
  *
- * This test creates a 0%-covered fixture in packages/core/src/__fixtures__/,
- * spawns vitest --coverage, and asserts the process exits non-zero.
- *
- * RED at Wave 0: packages/core does not exist yet, so the coverage run cannot fire.
- * GREEN in Wave 1: after Plan 02 creates the package stubs.
+ * Approach:
+ *   1. Create a temp dir with a minimal vitest config (global 90% threshold)
+ *      + a single 0%-covered source file
+ *   2. Spawn the repo's vitest binary against that isolated config
+ *   3. Assert exit code is non-zero AND output contains threshold-failure text
+ *   4. afterAll: clean up temp dir
  *
  * No imports from @aprumo/* packages.
  */
@@ -20,95 +22,110 @@ import * as path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "../..");
-const FIXTURES_DIR = path.join(REPO_ROOT, "packages/core/src/__fixtures__");
-const UNCOVERED_FILE = path.join(FIXTURES_DIR, "uncovered.ts");
+const VITEST_BIN = path.join(REPO_ROOT, "node_modules/.bin/vitest");
 
-// Isolated coverage dir for the NESTED vitest run. Without this, the spawned
-// `vitest --coverage` shares ./coverage/.tmp with the outer Coverage Gate run
-// (Job 5), and the inner run wipes the outer's .tmp mid-flight, surfacing as
-// "Something removed the coverage directory ... coverage/.tmp". See CI Job 5.
-const NESTED_COVERAGE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "aprumo-cov-gate-"));
+// Points to the ESM-compatible config entrypoint for use in file:// imports
+const VITEST_CONFIG_IMPORT = `file://${REPO_ROOT}/node_modules/vitest/dist/config.js`;
+const VITEST_INDEX_IMPORT = `file://${REPO_ROOT}/node_modules/vitest/dist/index.js`;
+
+let tempDir: string;
 
 describe("INF-04: Coverage gate fires on 0%-covered code", () => {
   beforeAll(() => {
-    // Create packages/core/src/__fixtures__/uncovered.ts with 0% line coverage
-    // This function is exported but has no corresponding test — Vitest will never call it
-    if (!fs.existsSync(FIXTURES_DIR)) {
-      fs.mkdirSync(FIXTURES_DIR, { recursive: true });
-    }
+    // Create isolated temp project: minimal vitest config + uncovered source file
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aprumo-cov-gate-"));
+
+    fs.mkdirSync(path.join(tempDir, "src"), { recursive: true });
+
+    // Source file: single exported function, never called by any test → 0% coverage
     fs.writeFileSync(
-      UNCOVERED_FILE,
-      `// This file is intentionally not tested — used to verify the coverage gate fires\nexport function neverCalled(): string {\n  return "I am never tested";\n}\n`,
+      path.join(tempDir, "src", "uncovered.mjs"),
+      `${[
+        "// Intentionally untested — exists only to trigger threshold failure",
+        "export function neverCalled() { return 'never tested'; }",
+      ].join("\n")}\n`,
+      "utf8",
+    );
+
+    // Dummy test: passes, but never imports uncovered.mjs
+    fs.writeFileSync(
+      path.join(tempDir, "dummy.test.mjs"),
+      `${[
+        `import { test, expect } from "${VITEST_INDEX_IMPORT}";`,
+        "test('dummy passes', () => { expect(1).toBe(1); });",
+      ].join("\n")}\n`,
+      "utf8",
+    );
+
+    // Minimal vitest config with:
+    //   - coverage.include pointing at src/** so uncovered.mjs is tracked
+    //   - global thresholds at 90% (not per-glob, which require root-relative paths)
+    fs.writeFileSync(
+      path.join(tempDir, "vitest.config.mjs"),
+      `${[
+        `import { defineConfig } from "${VITEST_CONFIG_IMPORT}";`,
+        "export default defineConfig({",
+        "  test: {",
+        "    environment: 'node',",
+        "    include: ['**/*.test.mjs'],",
+        "    coverage: {",
+        "      provider: 'v8',",
+        "      reporter: ['text'],",
+        "      reportsDirectory: './coverage',",
+        "      include: ['src/**'],",
+        "      thresholds: {",
+        "        lines: 90,",
+        "        functions: 90,",
+        "        branches: 80,",
+        "        statements: 90,",
+        "      },",
+        "    },",
+        "  },",
+        "});",
+      ].join("\n")}\n`,
       "utf8",
     );
   });
 
   afterAll(() => {
-    // Cleanup: remove the fixture file
-    if (fs.existsSync(UNCOVERED_FILE)) {
-      fs.unlinkSync(UNCOVERED_FILE);
-    }
-    // Remove the fixtures directory if empty
-    try {
-      fs.rmdirSync(FIXTURES_DIR);
-    } catch {
-      // Directory not empty or doesn't exist — ignore
-    }
-    // Remove the isolated nested-coverage dir
-    try {
-      fs.rmSync(NESTED_COVERAGE_DIR, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
+    // Clean up the entire isolated temp directory
+    if (tempDir && fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
 
-  it("pnpm vitest run --coverage exits non-zero when core coverage is below 90%", {
-    timeout: 130_000,
+  it("vitest --coverage exits non-zero when a source file has 0% line coverage against a 90% threshold", {
+    timeout: 120_000,
   }, () => {
-    // Spawn vitest with coverage for the core package
-    // We use json reporter to keep output clean and check for threshold failure message
-    const result = spawnSync(
-      "pnpm",
-      [
-        "vitest",
-        "run",
-        "--coverage",
-        // Isolate from the outer Coverage Gate run's ./coverage/.tmp to avoid a dir-wipe race
-        `--coverage.reportsDirectory=${NESTED_COVERAGE_DIR}`,
-        "--reporter=json",
-        "--project=@aprumo/core",
-      ],
-      {
-        cwd: REPO_ROOT,
-        encoding: "utf8",
-        timeout: 120_000, // 2 minutes max
-        env: { ...process.env, CI: "true" },
-      },
-    );
+    // Run vitest binary from the isolated temp directory
+    // Using the repo's node_modules/.bin/vitest to avoid any PATH dependency
+    const result = spawnSync(VITEST_BIN, ["run", "--coverage", "--config", "vitest.config.mjs"], {
+      cwd: tempDir,
+      encoding: "utf8",
+      timeout: 110_000,
+      env: { ...process.env, CI: "true" },
+    });
 
     const stdout = result.stdout ?? "";
     const stderr = result.stderr ?? "";
     const combinedOutput = stdout + stderr;
 
-    // The process MUST exit non-zero when coverage thresholds are not met
+    // Primary assertion: must exit non-zero when thresholds are breached
     expect(
       result.status,
-      `Expected vitest --coverage to exit non-zero (coverage threshold failure) but got exit code ${result.status}.\nstdout: ${stdout.slice(0, 2000)}\nstderr: ${stderr.slice(0, 2000)}`,
+      `Expected vitest --coverage to exit non-zero (threshold failure).\nstdout: ${stdout.slice(0, 3000)}\nstderr: ${stderr.slice(0, 3000)}`,
     ).not.toBe(0);
 
-    // Vitest outputs a coverage threshold failure message
-    // At Wave 0, the failure is because packages/core doesn't exist — also non-zero
-    const hasThresholdOrMissingMessage =
-      combinedOutput.includes("ERROR") ||
+    // Secondary assertion: output must contain the threshold-failure error text
+    const hasThresholdFailureMessage =
       combinedOutput.includes("does not meet") ||
       combinedOutput.includes("threshold") ||
-      combinedOutput.includes("coverage") ||
-      combinedOutput.includes("No test files found") ||
-      result.status !== 0;
+      combinedOutput.includes("ERROR: Coverage") ||
+      combinedOutput.includes("Coverage for");
 
     expect(
-      hasThresholdOrMissingMessage,
-      `Expected output to contain coverage threshold error or error message.\nOutput: ${combinedOutput.slice(0, 2000)}`,
+      hasThresholdFailureMessage,
+      `Expected vitest output to contain coverage threshold failure message.\nOutput: ${combinedOutput.slice(0, 3000)}`,
     ).toBe(true);
   });
 });
