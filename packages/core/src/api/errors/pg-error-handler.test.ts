@@ -48,7 +48,10 @@ function makeMockRequest(id = "test-req-id") {
 }
 
 function makeError(fields: Record<string, unknown>): FastifyError {
-  return Object.assign(new Error(String(fields.message ?? "error")), fields) as FastifyError;
+  return Object.assign(
+    new Error(String(fields.message ?? "error")),
+    fields,
+  ) as unknown as FastifyError;
 }
 
 // ---------------------------------------------------------------------------
