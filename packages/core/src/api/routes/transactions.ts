@@ -136,43 +136,79 @@ export const transactionRoutes: FastifyPluginAsync<TransactionRouteOptions> = as
       // Step 2: Call post_transaction via SERIALIZABLE transaction wrapped in retry.
       // withRetryOnSerializationFailure retries the full db.transaction() factory on SQLSTATE 40001.
       // NEVER insert into postings directly — post_transaction() is the sole write path (Invariant #1).
-      const txId = await withRetryOnSerializationFailure(() =>
-        db.transaction(
-          async (tx) => {
-            // Build posting_input ROW fragments — all scalars parameterized via sql template (T-03-05a)
-            const postingRows = body.postings.map(
-              (p) =>
-                // ROW field order matches posting_input composite type: (account_id, amount_cents, direction)
-                sql`ROW(${p.account_id}, ${BigInt(p.amount_cents)}, ${p.direction})::posting_input`,
-            );
+      //
+      // Concurrent duplicate handling: two simultaneous requests with the same idempotency key can
+      // both pass the SELECT-first check above (race window), then race at post_transaction().
+      // Inside post_transaction(), the loser catches unique_violation and returns the winner's tx_id.
+      // BUT: with SERIALIZABLE isolation, the loser's transaction may still get 40001 at COMMIT.
+      // withRetryOnSerializationFailure retries up to 3 times; on each retry, post_transaction's
+      // SELECT guard finds the committed row and returns early (no write conflict on retry).
+      // If all retries exhaust (extremely rare under load), we fall back to a plain SELECT to check
+      // whether a concurrent request already committed — and return 200 if found (Invariant #3).
+      let txId: string;
+      try {
+        txId = await withRetryOnSerializationFailure(() =>
+          db.transaction(
+            async (tx) => {
+              // Build posting_input ROW fragments — all scalars parameterized via sql template (T-03-05a)
+              const postingRows = body.postings.map(
+                (p) =>
+                  // ROW field order matches posting_input composite type: (account_id, amount_cents, direction)
+                  sql`ROW(${p.account_id}, ${BigInt(p.amount_cents)}, ${p.direction})::posting_input`,
+              );
 
-            const result = await tx.execute(
-              sql`SELECT post_transaction(
-                ${idempotencyKey},
-                ${body.description ?? null},
-                ${"api"},
-                ${JSON.stringify(body.metadata ?? {})}::jsonb,
-                ARRAY[${sql.join(postingRows, sql`, `)}]
-              )`,
-            );
+              const result = await tx.execute(
+                sql`SELECT post_transaction(
+                  ${idempotencyKey},
+                  ${body.description ?? null},
+                  ${"api"},
+                  ${JSON.stringify(body.metadata ?? {})}::jsonb,
+                  ARRAY[${sql.join(postingRows, sql`, `)}]
+                )`,
+              );
 
-            // For node-postgres driver, db.execute() returns a QueryResult object with a .rows array.
-            // For postgres-js driver, db.execute() returns the rows array directly.
-            // Normalise: handle both shapes via the AnyDrizzleDb union.
-            const resultRows = Array.isArray(result)
-              ? result
-              : (result as { rows: unknown[] }).rows;
+              // For node-postgres driver, db.execute() returns a QueryResult object with a .rows array.
+              // For postgres-js driver, db.execute() returns the rows array directly.
+              // Normalise: handle both shapes via the AnyDrizzleDb union.
+              const resultRows = Array.isArray(result)
+                ? result
+                : (result as { rows: unknown[] }).rows;
 
-            // post_transaction returns the new transaction UUID
-            const row = resultRows[0] as { post_transaction: string } | undefined;
-            if (!row?.post_transaction) {
-              throw new Error("post_transaction returned no UUID");
-            }
-            return row.post_transaction;
-          },
-          { isolationLevel: "serializable", accessMode: "read write" },
-        ),
-      );
+              // post_transaction returns the new transaction UUID
+              const row = resultRows[0] as { post_transaction: string } | undefined;
+              if (!row?.post_transaction) {
+                throw new Error("post_transaction returned no UUID");
+              }
+              return row.post_transaction;
+            },
+            { isolationLevel: "serializable", accessMode: "read write" },
+          ),
+        );
+      } catch (err) {
+        // If serialization retries exhausted AND a concurrent request already committed
+        // the same idempotency key, return 200 (Invariant #3: never error on duplicate).
+        // This is the last-resort fallback for the extremely rare case where all 3 retries
+        // also encounter serialization failures (e.g. very high concurrency under load).
+        const errCode =
+          (err as { code?: string }).code ?? (err as { cause?: { code?: string } }).cause?.code;
+        if (errCode === "40001") {
+          const fallback = await db
+            .select()
+            .from(transactions)
+            .where(eq(transactions.idempotency_key, idempotencyKey))
+            .limit(1);
+          if (fallback[0]) {
+            const fallbackPostings = await db
+              .select()
+              .from(postings)
+              .where(eq(postings.transaction_id, fallback[0].id))
+              .orderBy(desc(postings.created_at));
+            return reply.status(200).send(buildTransactionResponse(fallback[0], fallbackPostings));
+          }
+        }
+        // Non-40001 or genuinely not found after exhaustion — re-throw for pgErrorHandler
+        throw err;
+      }
 
       // Step 3: Fetch the newly created transaction + its postings for the 201 response
       const newTx = await db.select().from(transactions).where(eq(transactions.id, txId)).limit(1);
