@@ -2,8 +2,7 @@
 "@aprumo/core": minor
 "@aprumo/connector-base": minor
 "@aprumo/connector-starkbank": minor
-"@aprumo/connector-webhooks": minor
-"@aprumo/connector-abacatepay": minor
+"@aprumo/webhooks": minor
 ---
 
 Initial monorepo scaffold for v0.1 — package stubs, strict TypeScript, Biome,
