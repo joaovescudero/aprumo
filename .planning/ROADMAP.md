@@ -131,7 +131,7 @@ Plans:
 **Wave 1** *(parallel — no dependencies)*
 
 - [x] 03-01-PLAN.md — Package install: fastify + TypeBox + swagger ecosystem into @aprumo/core (human checkpoint for [ASSUMED] packages)
-- [ ] 03-02-PLAN.md — Migration 0010: add postings.created_at for cursor pagination + [BLOCKING] pnpm db:migrate apply
+- [x] 03-02-PLAN.md — Migration 0010: add postings.created_at for cursor pagination + [BLOCKING] pnpm db:migrate apply
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -258,7 +258,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 |-------|----------------|--------|-----------|
 | 1. Monorepo Scaffold + CI + Dev Security | 7/7 | Complete   | 2026-05-22 |
 | 2. Schema Foundation + DB Tooling | 14/14 | Complete   | 2026-05-25 |
-| 3. Core Ledger API | 1/7 | In Progress|  |
+| 3. Core Ledger API | 2/7 | In Progress|  |
 | 4. Balance Worker + Reconciliation | 0/TBD | Not started | - |
 | 5. Connector Base Interface | 0/TBD | Not started | - |
 | 6. Starkbank Connector | 0/TBD | Not started | - |
