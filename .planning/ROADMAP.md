@@ -125,7 +125,28 @@ Plans:
   4. `withRetryOnSerializationFailure` wrapper retries the entire `db.transaction()` call (not just the failing query) on SQLSTATE 40001 — verified by mocking `serialization_failure` on first attempt and asserting success on second
   5. `GET /health` returns 200 with PG connectivity check; `GET /docs` serves OpenAPI UI; `amount_cents` documented as JSON string in the spec
 
-**Plans**: TBD
+**Plans**: 7 plans
+Plans:
+
+**Wave 1** *(parallel — no dependencies)*
+
+- [ ] 03-01-PLAN.md — Package install: fastify + TypeBox + swagger ecosystem into @aprumo/core (human checkpoint for [ASSUMED] packages)
+- [ ] 03-02-PLAN.md — Migration 0010: add postings.created_at for cursor pagination + [BLOCKING] pnpm db:migrate apply
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 03-03-PLAN.md — TDD: withRetryOnSerializationFailure + pgErrorHandler + app-errors (pure unit, no DB)
+- [ ] 03-04-PLAN.md — TypeBox schemas (transaction/account/common) + BigInt serializer plugin + Swagger plugin + server factory
+
+**Wave 3** *(blocked on Wave 2 + 03-02)*
+
+- [ ] 03-05-PLAN.md — TDD: POST /v1/transactions + GET /v1/transactions/:id (integration, testcontainers PG)
+- [ ] 03-06-PLAN.md — TDD: POST /v1/accounts + GET /v1/accounts/:id + GET /v1/accounts/:id/postings (integration)
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 03-07-PLAN.md — GET /health + Swagger UI validation + main.ts entrypoint + coverage gate ≥90% LoC
+
 **UI hint**: no
 
 ### Phase 4: Balance Worker + Reconciliation

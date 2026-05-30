@@ -1,10 +1,11 @@
 ---
 phase: 3
 slug: core-ledger-api
-status: draft
-nyquist_compliant: false
+status: planned
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-05-29
+updated: 2026-05-29
 ---
 
 # Phase 3 — Validation Strategy
@@ -42,11 +43,11 @@ created: 2026-05-29
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| TBD | TBD | TBD | API-02 | — | BigInt amount_cents/IDs render as JSON string, never raw bigint | integration | `pnpm --filter @aprumo/core test` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | API-03/04 | — | Balanced postings → 201 persisted; unbalanced → 422 (constraint trigger mapped) | integration | `pnpm --filter @aprumo/core test` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | API-05 | — | Concurrent duplicate Idempotency-Key (Promise.all) → both 200, identical body, no reprocess | integration | `pnpm --filter @aprumo/core test` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | API-10/11 | — | 40001 wraps full db.transaction(), retries ≤3x backoff; exhausted → 503 | integration | `pnpm --filter @aprumo/core test` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | API-08/09 | — | Account balance from materialized account_balance; cursor pagination by ordering col desc | integration | `pnpm --filter @aprumo/core test` | ❌ W0 | ⬜ pending |
+| Task 1 | 03-03 | 2 | API-10 | T-03-03b | withRetry wraps full db.transaction() factory on 40001; retries ≤3x backoff; exhausted → re-throws | unit | `pnpm --filter @aprumo/core test -- with-retry` | ❌ W0 (TDD RED) | ⬜ pending |
+| Task 2 | 03-03 | 2 | API-11 | T-03-03a | pgErrorHandler maps P0001 → 422, 40001 → 503 retryable:true, validation → 422; 500 never leaks internals | unit | `pnpm --filter @aprumo/core test -- pg-error-handler` | ❌ W0 (TDD RED) | ⬜ pending |
+| Task 1 | 03-05 | 3 | API-02, API-03, API-04, API-05 | T-03-05a,e | BigInt amount_cents as string; balanced → 201; unbalanced → 422; concurrent dupe key → both 2xx, same body | integration | `pnpm --filter @aprumo/core test -- transactions.test` | ❌ W0 (TDD RED) | ⬜ pending |
+| Task 1 | 03-06 | 3 | API-08, API-09 | T-03-06a,b | balance from account_balance ('0' if absent); cursor pagination by created_at DESC; limit cap 100 | integration | `pnpm --filter @aprumo/core test -- accounts.test` | ❌ W0 (TDD RED) | ⬜ pending |
+| Task 1 | 03-07 | 4 | API-12, API-13 | T-03-07a | GET /health → 200 PG up; GET /docs/json spec has amount_cents as type:string | integration | `pnpm --filter @aprumo/core test -- health.test` | ❌ W0 (TDD RED) | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -54,9 +55,14 @@ created: 2026-05-29
 
 ## Wave 0 Requirements
 
-- [ ] Integration test scaffolds (RED) for the five Nyquist-critical behaviors above — reuse Phase 2 testcontainers `createTestDb` schema-per-file helper
-- [ ] No new framework install needed — vitest + testcontainers already configured in Phase 2
-- [ ] BigInt-string assertion helper (response `amount_cents` is `typeof === 'string'`)
+All test files are created by the TDD RED tasks in each plan — they are the "Wave 0" scaffolds:
+
+- [x] **03-03 Task 1**: `with-retry.test.ts` + `pg-error-handler.test.ts` (RED before implementation)
+- [x] **03-05 Task 1**: `transactions.test.ts` (RED before transactions.ts)
+- [x] **03-06 Task 1**: `accounts.test.ts` (RED before accounts.ts)
+- [x] **03-07 Task 1**: `health.test.ts` (RED before health.ts)
+
+No separate Wave 0 plan needed — TDD tasks in each plan create the failing tests first.
 
 *Phase 2 testcontainers infrastructure covers the ledger PG path. No mocks on the ledger PG path (CLAUDE.md).*
 
@@ -66,7 +72,7 @@ created: 2026-05-29
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| `GET /docs` OpenAPI UI renders | API-13 | Visual swagger UI render not asserted in unit test | Start server, open `/docs`, confirm `amount_cents` shows `type: string` |
+| `GET /docs` Swagger UI renders visually | API-13 | Visual swagger UI render not fully asserted in unit test | Start server, open `/docs`, confirm `amount_cents` shows `type: string` — human checkpoint in 03-07 Task 2 |
 
 *All ledger-critical behaviors have automated verification. Only the swagger UI visual render is manual.*
 
@@ -74,11 +80,11 @@ created: 2026-05-29
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 60s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or TDD RED gate
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covered by TDD RED tasks in plans 03-03, 03-05, 03-06, 03-07
+- [x] No watch-mode flags
+- [x] Feedback latency < 60s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** planned (2026-05-29)
