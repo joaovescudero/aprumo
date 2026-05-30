@@ -147,7 +147,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4)*
 
-- [ ] 03-06-PLAN.md — TDD: POST /v1/accounts + GET /v1/accounts/:id + GET /v1/accounts/:id/postings (integration)
+- [x] 03-06-PLAN.md — TDD: POST /v1/accounts + GET /v1/accounts/:id + GET /v1/accounts/:id/postings (integration)
 
 **Wave 6** *(blocked on Wave 5)*
 
@@ -258,7 +258,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 |-------|----------------|--------|-----------|
 | 1. Monorepo Scaffold + CI + Dev Security | 7/7 | Complete   | 2026-05-22 |
 | 2. Schema Foundation + DB Tooling | 14/14 | Complete   | 2026-05-25 |
-| 3. Core Ledger API | 5/7 | In Progress|  |
+| 3. Core Ledger API | 6/7 | In Progress|  |
 | 4. Balance Worker + Reconciliation | 0/TBD | Not started | - |
 | 5. Connector Base Interface | 0/TBD | Not started | - |
 | 6. Starkbank Connector | 0/TBD | Not started | - |
