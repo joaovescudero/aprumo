@@ -91,11 +91,20 @@ export const postings = pgTable(
     amount_cents: bigint("amount_cents", { mode: "bigint" }).notNull(),
     /** Debit or credit — enforced by CHECK constraint. */
     direction: text("direction").notNull(),
+    /**
+     * Insertion timestamp — set by Postgres DEFAULT now() at INSERT time.
+     * Used as the sort key for cursor pagination in GET /v1/accounts/:id/postings (D-04).
+     * UUIDv4 IDs are random and non-monotonic; created_at is the only semantically
+     * meaningful sort key (RESEARCH.md Pitfall 5).
+     */
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
     check("posting_direction_check", sql`${table.direction} IN ('debit', 'credit')`),
     // Index on transaction_id: required by the double-entry trigger's SUM aggregate query.
     index("postings_transaction_id_idx").on(table.transaction_id),
+    // Index on created_at DESC: supports O(log N) cursor pagination ORDER BY created_at DESC.
+    index("postings_created_at_idx").on(table.created_at),
   ],
 );
 
