@@ -15,7 +15,10 @@
     "lint": "biome check .",
     "changeset": "changeset",
     "changeset:check": "bash scripts/changeset-required.sh",
-    "db:migrate": "echo 'placeholder — implemented in Phase 2' && exit 0",
+    "db:migrate": "pnpm --filter @aprumo/core db:migrate",
+    "db:reset": "pnpm --filter @aprumo/core db:reset",
+    "db:generate": "pnpm --filter @aprumo/core db:generate",
+    "db:seed": "pnpm --filter @aprumo/core db:seed",
     "prepare": "lefthook install"
   },
   "devDependencies": {

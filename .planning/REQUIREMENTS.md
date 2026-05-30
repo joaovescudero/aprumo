@@ -9,24 +9,24 @@
 
 ### Foundation (FND) — Phase 2
 
-- [ ] **FND-01**: Schema PG do ledger criado via migration Drizzle: `accounts(id, type, metadata jsonb, owner_ref, created_at)` com `type IN (asset, liability, revenue, expense, equity)`
-- [ ] **FND-02**: Migration `transactions(id, idempotency_key UNIQUE NOT NULL, ts, description, source, metadata jsonb)` — reservar `metadata` desde v0.1
-- [ ] **FND-03**: Migration `postings(id, transaction_id FK, account_id FK, amount_cents BIGINT, direction IN(debit,credit))` — append-only
-- [ ] **FND-04**: Migration `raw_events(id, provider, provider_event_id, received_at, payload_jsonb, transaction_id FK NULL, status, UNIQUE(provider, provider_event_id))` — append-only
-- [ ] **FND-05**: Migration `account_balance(account_id PK FK, balance BIGINT, last_posting_id, updated_at)`
-- [ ] **FND-06**: Migration de tabelas `*_audit` (accounts_audit, configs_audit, customers_audit, outbound_endpoints_audit) com trigger `AFTER UPDATE/DELETE`
-- [ ] **FND-07**: Roles PG separadas: `aprumo_app` (SELECT/INSERT only, sem UPDATE/DELETE em postings/raw_events), `aprumo_migration` (DDL completo + DEFAULT PRIVILEGES)
-- [ ] **FND-08**: `REVOKE UPDATE, DELETE` em postings + raw_events para role `aprumo_app` (auditado por teste de CI que tenta UPDATE e espera falha)
-- [ ] **FND-09**: Função SQL `post_transaction(postings[])` valida balanceamento (SUM com sinal = 0), persiste transactions + postings atomicamente, é o ÚNICO caminho de escrita em postings
-- [ ] **FND-10**: CONSTRAINT TRIGGER (DEFERRABLE INITIALLY DEFERRED, NÃO CHECK) valida double-entry `SUM(amount_cents com sinal) = 0` por transaction_id no COMMIT
-- [ ] **FND-11**: CI verifica que constraint trigger está DEFERRABLE+DEFERRED ativa após cada migração (`pg_constraint` query)
-- [ ] **FND-12**: Docker-compose dev: Postgres 16+, com env-vars de roles, autovacuum tuning para pg-boss
-- [ ] **FND-13**: `pnpm db:reset` destrói e recria DB local; `pnpm db:migrate` aplica migrations
-- [ ] **FND-14**: Seed mínimo dev (1 customer, 2 contas, 1 transaction de exemplo) via `post_transaction` (nunca INSERT direto)
-- [ ] **FND-15**: Drizzle migration hash check em CI (falha em migração editada após commit)
-- [ ] **FND-16**: Testcontainers globalSetup com container Postgres compartilhado + isolamento por schema por arquivo de teste
-- [ ] **FND-17**: ADR-009 (Drizzle ratificado) escrita em `docs/adr/`
-- [ ] **FND-18**: ADRs 001–008 portadas para `docs/adr/` em formato MADR
+- [x] **FND-01**: Schema PG do ledger criado via migration Drizzle: `accounts(id, type, metadata jsonb, owner_ref, created_at)` com `type IN (asset, liability, revenue, expense, equity)`
+- [x] **FND-02**: Migration `transactions(id, idempotency_key UNIQUE NOT NULL, ts, description, source, metadata jsonb)` — reservar `metadata` desde v0.1
+- [x] **FND-03**: Migration `postings(id, transaction_id FK, account_id FK, amount_cents BIGINT, direction IN(debit,credit))` — append-only
+- [x] **FND-04**: Migration `raw_events(id, provider, provider_event_id, received_at, payload_jsonb, transaction_id FK NULL, status, UNIQUE(provider, provider_event_id))` — append-only
+- [x] **FND-05**: Migration `account_balance(account_id PK FK, balance BIGINT, last_posting_id, updated_at)`
+- [x] **FND-06**: Migration de tabelas `*_audit` (accounts_audit, configs_audit, customers_audit, outbound_endpoints_audit) com trigger `AFTER UPDATE/DELETE`
+- [x] **FND-07**: Roles PG separadas: `aprumo_app` (SELECT/INSERT only, sem UPDATE/DELETE em postings/raw_events), `aprumo_migration` (DDL completo + DEFAULT PRIVILEGES)
+- [x] **FND-08**: `REVOKE UPDATE, DELETE` em postings + raw_events para role `aprumo_app` (auditado por teste de CI que tenta UPDATE e espera falha)
+- [x] **FND-09**: Função SQL `post_transaction(postings[])` valida balanceamento (SUM com sinal = 0), persiste transactions + postings atomicamente, é o ÚNICO caminho de escrita em postings
+- [x] **FND-10**: CONSTRAINT TRIGGER (DEFERRABLE INITIALLY DEFERRED, NÃO CHECK) valida double-entry `SUM(amount_cents com sinal) = 0` por transaction_id no COMMIT
+- [x] **FND-11**: CI verifica que constraint trigger está DEFERRABLE+DEFERRED ativa após cada migração (`pg_constraint` query)
+- [x] **FND-12**: Docker-compose dev: Postgres 16+, com env-vars de roles, autovacuum tuning para pg-boss
+- [x] **FND-13**: `pnpm db:reset` destrói e recria DB local; `pnpm db:migrate` aplica migrations
+- [x] **FND-14**: Seed mínimo dev (1 customer, 2 contas, 1 transaction de exemplo) via `post_transaction` (nunca INSERT direto)
+- [x] **FND-15**: Drizzle migration hash check em CI (falha em migração editada após commit)
+- [x] **FND-16**: Testcontainers globalSetup com container Postgres compartilhado + isolamento por schema por arquivo de teste
+- [x] **FND-17**: ADR-009 (Drizzle ratificado) escrita em `docs/adr/`
+- [x] **FND-18**: ADRs 001–008 portadas para `docs/adr/` em formato MADR
 
 ### Infrastructure (INF) — Phase 1
 
@@ -197,24 +197,24 @@ Mapped by gsd-roadmapper on 2026-05-18. All 104 v1 requirements mapped to phases
 | INF-08 | Phase 1 | Complete |
 | INF-09 | Phase 1 | Complete |
 | INF-10 | Phase 1 | Complete |
-| FND-01 | Phase 2 | Pending |
-| FND-02 | Phase 2 | Pending |
-| FND-03 | Phase 2 | Pending |
-| FND-04 | Phase 2 | Pending |
-| FND-05 | Phase 2 | Pending |
-| FND-06 | Phase 2 | Pending |
-| FND-07 | Phase 2 | Pending |
-| FND-08 | Phase 2 | Pending |
-| FND-09 | Phase 2 | Pending |
-| FND-10 | Phase 2 | Pending |
-| FND-11 | Phase 2 | Pending |
-| FND-12 | Phase 2 | Pending |
-| FND-13 | Phase 2 | Pending |
-| FND-14 | Phase 2 | Pending |
-| FND-15 | Phase 2 | Pending |
-| FND-16 | Phase 2 | Pending |
-| FND-17 | Phase 2 | Pending |
-| FND-18 | Phase 2 | Pending |
+| FND-01 | Phase 2 | Complete |
+| FND-02 | Phase 2 | Complete |
+| FND-03 | Phase 2 | Complete |
+| FND-04 | Phase 2 | Complete |
+| FND-05 | Phase 2 | Complete |
+| FND-06 | Phase 2 | Complete |
+| FND-07 | Phase 2 | Complete |
+| FND-08 | Phase 2 | Complete |
+| FND-09 | Phase 2 | Complete |
+| FND-10 | Phase 2 | Complete |
+| FND-11 | Phase 2 | Complete |
+| FND-12 | Phase 2 | Complete |
+| FND-13 | Phase 2 | Complete |
+| FND-14 | Phase 2 | Complete |
+| FND-15 | Phase 2 | Complete |
+| FND-16 | Phase 2 | Complete |
+| FND-17 | Phase 2 | Complete |
+| FND-18 | Phase 2 | Complete |
 | API-01 | Phase 3 | Pending |
 | API-02 | Phase 3 | Pending |
 | API-03 | Phase 3 | Pending |
