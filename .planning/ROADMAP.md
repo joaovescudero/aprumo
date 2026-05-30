@@ -15,7 +15,7 @@ Security and tooling discipline come first (Phase 1) because the repo is public 
 
 - [x] **Phase 1: Monorepo Scaffold + CI + Dev Security** - pnpm workspace, TypeScript, Biome, Vitest, CI pipeline, secret scanning, and `.gitignore` — before any key or credential is ever generated (completed 2026-05-22)
 - [x] **Phase 2: Schema Foundation + DB Tooling** - Drizzle migrations for all ledger tables, PG roles, REVOKE enforcement, deferred double-entry constraint trigger, testcontainers setup, and ADRs (completed 2026-05-22)
-- [ ] **Phase 3: Core Ledger API** - Fastify REST endpoints for transactions/accounts/postings, `post_transaction` function, idempotency, serialization retry, BigInt serializer, and error handling
+- [x] **Phase 3: Core Ledger API** - Fastify REST endpoints for transactions/accounts/postings, `post_transaction` function, idempotency, serialization retry, BigInt serializer, and error handling (completed 2026-05-30)
 - [ ] **Phase 4: Balance Worker + Reconciliation** - pg-boss queues, incremental balance worker (cursor + FOR UPDATE), daily reconciliation job, and lag Prometheus metric
 - [ ] **Phase 5: Connector Base Interface** - `LedgerConnector` interface, canonical types, HMAC helpers, contract test suite export, FakeConnector, and dependency graph CI check
 - [ ] **Phase 6: Starkbank Connector** - Starkbank SDK integration with ECDSA webhook parsing, 6-method implementation, MSW mocks, contract tests green, and Starkbank event taxonomy spike
@@ -151,7 +151,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5)*
 
-- [ ] 03-07-PLAN.md — TDD RED/GREEN: GET /health + main.ts entrypoint + coverage gate ≥90% LoC + Swagger UI checkpoint
+- [x] 03-07-PLAN.md — TDD RED/GREEN: GET /health + main.ts entrypoint + coverage gate ≥90% LoC + Swagger UI checkpoint
 
 **UI hint**: no
 
@@ -258,7 +258,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 |-------|----------------|--------|-----------|
 | 1. Monorepo Scaffold + CI + Dev Security | 7/7 | Complete   | 2026-05-22 |
 | 2. Schema Foundation + DB Tooling | 14/14 | Complete   | 2026-05-25 |
-| 3. Core Ledger API | 6/7 | In Progress|  |
+| 3. Core Ledger API | 7/7 | Complete   | 2026-05-30 |
 | 4. Balance Worker + Reconciliation | 0/TBD | Not started | - |
 | 5. Connector Base Interface | 0/TBD | Not started | - |
 | 6. Starkbank Connector | 0/TBD | Not started | - |
