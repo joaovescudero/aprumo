@@ -59,12 +59,25 @@ function buildProblem(
  * generic schema validation failures (422).
  */
 function isMissingIdempotencyKeyElement(element: unknown): boolean {
-  return (
-    typeof element === "object" &&
-    element !== null &&
-    "missingProperty" in element &&
-    (element as { missingProperty: unknown }).missingProperty === "idempotency-key"
-  );
+  if (typeof element !== "object" || element === null) return false;
+
+  // Ajv 8 format (Fastify 5): missingProperty nested under params
+  // { keyword: 'required', params: { missingProperty: 'idempotency-key' }, ... }
+  const el = element as Record<string, unknown>;
+  if (
+    typeof el.params === "object" &&
+    el.params !== null &&
+    (el.params as Record<string, unknown>).missingProperty === "idempotency-key"
+  ) {
+    return true;
+  }
+
+  // Legacy fallback: top-level missingProperty (used in unit tests with hand-crafted errors)
+  if ("missingProperty" in el && el.missingProperty === "idempotency-key") {
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -76,7 +89,7 @@ function isMissingIdempotencyKeyElement(element: unknown): boolean {
  * NEVER logs error.message in the response body for 500 errors (T-03-03a).
  */
 export function pgErrorHandler(
-  error: FastifyError & { code?: string; validation?: unknown[] },
+  error: FastifyError & { code?: string; validation?: unknown[]; validationContext?: string },
   req: FastifyRequest,
   reply: FastifyReply,
 ): void {
@@ -105,7 +118,24 @@ export function pgErrorHandler(
       return;
     }
 
-    // Generic validation failure → 422
+    // Path params validation failure → 400 (malformed request structure, not business validation)
+    // validationContext='params' is set by Fastify when the path parameter fails validation.
+    // e.g. GET /v1/transactions/not-a-uuid fails uuid format check → 400.
+    if (error.validationContext === "params") {
+      sendProblem(
+        400,
+        buildProblem(
+          400,
+          "validation_error",
+          "Validation failed",
+          "Request path parameters did not pass schema validation.",
+          instance,
+        ),
+      );
+      return;
+    }
+
+    // Generic validation failure (body / headers) → 422
     sendProblem(
       422,
       buildProblem(
@@ -119,12 +149,38 @@ export function pgErrorHandler(
     return;
   }
 
-  // Extract PG error code via safe cast (per PATTERNS.md pattern, no any)
-  const pgCode = (error as unknown as { code?: string }).code;
+  // Extract PG error code via safe cast (per PATTERNS.md pattern, no any).
+  // Drizzle wraps PG query errors as DrizzleQueryError with message "Failed query: ..."
+  // and stores the original PG DatabaseError (with its SQLSTATE code) as `error.cause`.
+  // We must check both the top-level code AND the cause's code.
+  const errAsObj = error as unknown as {
+    code?: string;
+    cause?: { code?: string; message?: string };
+  };
+  const pgCode = errAsObj.code ?? errAsObj.cause?.code;
+
+  // 2.5) Application not_found errors (thrown by route handlers for missing resources)
+  // Route handlers cannot call reply.status(404) when the TypeBox schema only declares 200,
+  // so they throw an error with code='not_found' and statusCode=404 instead.
+  if (pgCode === "not_found" || (error as unknown as { statusCode?: number }).statusCode === 404) {
+    sendProblem(
+      404,
+      buildProblem(
+        404,
+        "not_found",
+        "Not found",
+        error.message ?? "The requested resource was not found.",
+        instance,
+      ),
+    );
+    return;
+  }
 
   // 3 & 4) PG RAISE EXCEPTION (post_transaction validation failures)
   if (pgCode === PG_RAISE_EXCEPTION) {
-    if (error.message.includes("do not balance")) {
+    // Check for "do not balance" in the cause message (Drizzle-wrapped) or top-level message.
+    const pgMessage = errAsObj.cause?.message ?? error.message;
+    if (pgMessage.includes("do not balance")) {
       sendProblem(
         422,
         buildProblem(
