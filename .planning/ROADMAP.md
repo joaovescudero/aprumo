@@ -139,7 +139,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2; 03-04 depends on 03-03 for pgErrorHandler import)*
 
-- [ ] 03-04-PLAN.md — TDD RED/GREEN: TypeBox schemas + BigInt serializer + server.ts factory (imports pgErrorHandler from 03-03)
+- [x] 03-04-PLAN.md — TDD RED/GREEN: TypeBox schemas + BigInt serializer + server.ts factory (imports pgErrorHandler from 03-03)
 
 **Wave 4** *(blocked on Wave 3 + 03-02)*
 
@@ -258,7 +258,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 |-------|----------------|--------|-----------|
 | 1. Monorepo Scaffold + CI + Dev Security | 7/7 | Complete   | 2026-05-22 |
 | 2. Schema Foundation + DB Tooling | 14/14 | Complete   | 2026-05-25 |
-| 3. Core Ledger API | 3/7 | In Progress|  |
+| 3. Core Ledger API | 4/7 | In Progress|  |
 | 4. Balance Worker + Reconciliation | 0/TBD | Not started | - |
 | 5. Connector Base Interface | 0/TBD | Not started | - |
 | 6. Starkbank Connector | 0/TBD | Not started | - |
