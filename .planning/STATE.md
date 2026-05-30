@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Phase 3 Plan 01 complete — fastify ecosystem packages installed
-last_updated: "2026-05-30T04:48:42.844Z"
+stopped_at: Phase 3 Plan 04 complete — TypeBox schemas, BigInt serializer, server factory
+last_updated: "2026-05-30T05:00:00Z"
 last_activity: 2026-05-30
 progress:
   total_phases: 9
   completed_phases: 2
   total_plans: 28
-  completed_plans: 24
-  percent: 22
+  completed_plans: 27
+  percent: 25
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-18)
 ## Current Position
 
 Phase: 3
-Plan: 01 (complete), 02 next
+Plan: 04 (complete), 05 next
 Status: In progress
 Last activity: 2026-05-30
 
-Progress: [█████████░] 86%
+Progress: [██████████] 89%
 
 ## Performance Metrics
 
@@ -72,6 +72,7 @@ Progress: [█████████░] 86%
 | Phase 03-core-ledger-api P01 | 6m 5s | 2 tasks | 2 files |
 | Phase 03 P02 | 138s | 2 tasks | 4 files |
 | Phase 03 P03 | 367 | 3 tasks | 5 files |
+| Phase 03 P04 | 8m 5s | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -114,6 +115,8 @@ Recent decisions affecting current work:
 - [Phase 02 P14]: D-50: globalSetup pre-creates cluster-global roles with PL/pgSQL EXCEPTION duplicate_object (not IF NOT EXISTS) — atomic idempotency for cold and reuse-mode containers
 - [Phase 02 P14]: D-51: RACE-02 targets shared inject('pgUri') container to test actual fix boundary; RACE-01 targets ephemeral container to document raw race without savepoint masking
 - [Phase 03 P01]: @fastify/type-provider-typebox downgraded to 5.2.0 — v6.1.0 requires standalone typebox@1.x peer, incompatible with @sinclair/typebox@0.34.49; v5.2.0 supports @sinclair/typebox >=0.26 <=0.34
+- [Phase 03 P04]: Two-layer BigInt serializer: setSerializerCompiler alone does not apply to schema-less routes in Fastify 5 — added setReplySerializer as universal fallback
+- [Phase 03 P04]: AnyDrizzleDb = PostgresJsDatabase | NodePgDatabase union exported from server.ts; all route plugins import this type
 
 ### Pending Todos
 
@@ -139,6 +142,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-30T04:48:42.836Z
-Stopped at: Phase 3 Plan 01 complete — fastify ecosystem packages installed
+Last session: 2026-05-30T05:00:00Z
+Stopped at: Phase 3 Plan 04 complete — TypeBox schemas, BigInt serializer, server factory
 Resume file: None
