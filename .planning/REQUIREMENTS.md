@@ -52,8 +52,8 @@
 - [ ] **API-07**: `POST /accounts` cria conta com `type` (asset/liability/revenue/expense/equity) + `metadata`
 - [ ] **API-08**: `GET /accounts/:id` retorna metadata + saldo materializado de `account_balance`
 - [x] **API-09**: `GET /accounts/:id/postings?cursor=&limit=` retorna extrato paginado por `posting.id` desc
-- [ ] **API-10**: `withRetryOnSerializationFailure` wrapper: captura SQLSTATE 40001, retry até 3x com backoff exponencial; envolve toda `db.transaction()`
-- [ ] **API-11**: Error handler global Fastify: 40001 esgotado → 503, validation → 422, idempotency conflict → 200 (com tx original)
+- [x] **API-10**: `withRetryOnSerializationFailure` wrapper: captura SQLSTATE 40001, retry até 3x com backoff exponencial; envolve toda `db.transaction()`
+- [x] **API-11**: Error handler global Fastify: 40001 esgotado → 503, validation → 422, idempotency conflict → 200 (com tx original)
 - [ ] **API-12**: `GET /health` (liveness + readiness, inclui check de PG)
 - [x] **API-13**: OpenAPI spec gerado automaticamente, com `amount_cents` documentado como JSON string
 
@@ -224,8 +224,8 @@ Mapped by gsd-roadmapper on 2026-05-18. All 104 v1 requirements mapped to phases
 | API-07 | Phase 3 | Pending |
 | API-08 | Phase 3 | Pending |
 | API-09 | Phase 3 | Complete |
-| API-10 | Phase 3 | Pending |
-| API-11 | Phase 3 | Pending |
+| API-10 | Phase 3 | Complete |
+| API-11 | Phase 3 | Complete |
 | API-12 | Phase 3 | Pending |
 | API-13 | Phase 3 | Complete |
 | BAL-01 | Phase 4 | Pending |

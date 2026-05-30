@@ -135,7 +135,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 03-03-PLAN.md — TDD: withRetryOnSerializationFailure + pgErrorHandler + app-errors (pure unit, no DB)
+- [x] 03-03-PLAN.md — TDD: withRetryOnSerializationFailure + pgErrorHandler + app-errors (pure unit, no DB)
 
 **Wave 3** *(blocked on Wave 2; 03-04 depends on 03-03 for pgErrorHandler import)*
 
@@ -258,7 +258,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 |-------|----------------|--------|-----------|
 | 1. Monorepo Scaffold + CI + Dev Security | 7/7 | Complete   | 2026-05-22 |
 | 2. Schema Foundation + DB Tooling | 14/14 | Complete   | 2026-05-25 |
-| 3. Core Ledger API | 2/7 | In Progress|  |
+| 3. Core Ledger API | 3/7 | In Progress|  |
 | 4. Balance Worker + Reconciliation | 0/TBD | Not started | - |
 | 5. Connector Base Interface | 0/TBD | Not started | - |
 | 6. Starkbank Connector | 0/TBD | Not started | - |
