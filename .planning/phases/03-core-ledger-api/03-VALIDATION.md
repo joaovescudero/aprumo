@@ -45,9 +45,9 @@ updated: 2026-05-29
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
 | Task 1 | 03-03 | 2 | API-10 | T-03-03b | withRetry wraps full db.transaction() factory on 40001; retries ≤3x backoff; exhausted → re-throws | unit | `pnpm --filter @aprumo/core test -- with-retry` | ❌ W0 (TDD RED) | ⬜ pending |
 | Task 2 | 03-03 | 2 | API-11 | T-03-03a | pgErrorHandler maps P0001 → 422, 40001 → 503 retryable:true, validation → 422; 500 never leaks internals | unit | `pnpm --filter @aprumo/core test -- pg-error-handler` | ❌ W0 (TDD RED) | ⬜ pending |
-| Task 1 | 03-05 | 3 | API-02, API-03, API-04, API-05 | T-03-05a,e | BigInt amount_cents as string; balanced → 201; unbalanced → 422; concurrent dupe key → both exactly 200, same body | integration | `pnpm --filter @aprumo/core test -- transactions.test` | ❌ W0 (TDD RED) | ⬜ pending |
-| Task 1 | 03-06 | 4 | API-08, API-09 | T-03-06a,b | balance from account_balance (null if absent); cursor pagination by created_at DESC; limit cap 100 | integration | `pnpm --filter @aprumo/core test -- accounts.test` | ❌ W0 (TDD RED) | ⬜ pending |
-| Task 1 | 03-07 | 5 | API-12, API-13 | T-03-07a | GET /health → 200 PG up; 503 when db.execute stubs throw; GET /docs/json spec has amount_cents as type:string | integration | `pnpm --filter @aprumo/core test -- health.test` | ❌ W0 (TDD RED) | ⬜ pending |
+| Task 1 | 03-05 | 4 | API-02, API-03, API-04, API-05 | T-03-05a,e | BigInt amount_cents as string; balanced → 201; unbalanced → 422; concurrent dupe key → both exactly 200, same body | integration | `pnpm --filter @aprumo/core test -- transactions.test` | ❌ W0 (TDD RED) | ⬜ pending |
+| Task 1 | 03-06 | 5 | API-08, API-09 | T-03-06a,b | balance from account_balance (null if absent); cursor pagination by created_at DESC; limit cap 100 | integration | `pnpm --filter @aprumo/core test -- accounts.test` | ❌ W0 (TDD RED) | ⬜ pending |
+| Task 1 | 03-07 | 6 | API-12, API-13 | T-03-07a | GET /health → 200 PG up; 503 when db.execute stubs throw; GET /docs/json spec has amount_cents as type:string | integration | `pnpm --filter @aprumo/core test -- health.test` | ❌ W0 (TDD RED) | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
