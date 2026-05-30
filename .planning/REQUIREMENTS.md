@@ -49,8 +49,8 @@
 - [x] **API-04**: `POST /transactions` rejeita postings que não somam zero por transaction_id (erro 422 da CONSTRAINT TRIGGER mapeado)
 - [x] **API-05**: Idempotência: `Idempotency-Key` duplicada retorna 200 com tx original (UNIQUE + ON CONFLICT pattern), nunca reprocessa
 - [x] **API-06**: `GET /transactions/:id` retorna transaction + postings ordenados
-- [ ] **API-07**: `POST /accounts` cria conta com `type` (asset/liability/revenue/expense/equity) + `metadata`
-- [ ] **API-08**: `GET /accounts/:id` retorna metadata + saldo materializado de `account_balance`
+- [x] **API-07**: `POST /accounts` cria conta com `type` (asset/liability/revenue/expense/equity) + `metadata`
+- [x] **API-08**: `GET /accounts/:id` retorna metadata + saldo materializado de `account_balance`
 - [x] **API-09**: `GET /accounts/:id/postings?cursor=&limit=` retorna extrato paginado por `posting.id` desc
 - [x] **API-10**: `withRetryOnSerializationFailure` wrapper: captura SQLSTATE 40001, retry até 3x com backoff exponencial; envolve toda `db.transaction()`
 - [x] **API-11**: Error handler global Fastify: 40001 esgotado → 503, validation → 422, idempotency conflict → 200 (com tx original)
@@ -221,8 +221,8 @@ Mapped by gsd-roadmapper on 2026-05-18. All 104 v1 requirements mapped to phases
 | API-04 | Phase 3 | Complete |
 | API-05 | Phase 3 | Complete |
 | API-06 | Phase 3 | Complete |
-| API-07 | Phase 3 | Pending |
-| API-08 | Phase 3 | Pending |
+| API-07 | Phase 3 | Complete |
+| API-08 | Phase 3 | Complete |
 | API-09 | Phase 3 | Complete |
 | API-10 | Phase 3 | Complete |
 | API-11 | Phase 3 | Complete |
