@@ -86,10 +86,15 @@ export async function createServer(db: AnyDrizzleDb): Promise<FastifyInstance> {
     genReqId: () => randomUUID(),
     // T-03-04c: Reject requests with __proto__ or constructor keys in JSON body.
     onProtoPoisoning: "error",
-    // T-03-04a, T-03-04b: Strict Ajv validation — no silent type coercion, strip unknown fields.
+    // T-03-04a, T-03-04b: Strict Ajv validation — strip unknown fields; minimal coercion.
+    // coerceTypes: 'array' allows HTTP query-string values ("2" → 2 for integer params)
+    // while preventing the dangerous array-to-scalar coercion that 'true' allows.
+    // This is required for GetPostingsQuerySchema Type.Integer({ maximum:200 }) to work
+    // correctly with query strings (which are always string-typed at the HTTP layer).
+    // See D-06: limit parameter coercion is expected behaviour, not a security bypass.
     ajv: {
       customOptions: {
-        coerceTypes: false,
+        coerceTypes: "array",
         removeAdditional: "all",
         useDefaults: true,
       },

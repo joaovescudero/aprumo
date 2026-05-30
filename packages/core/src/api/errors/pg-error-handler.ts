@@ -162,6 +162,23 @@ export function pgErrorHandler(
   // 2.5) Application not_found errors (thrown by route handlers for missing resources)
   // Route handlers cannot call reply.status(404) when the TypeBox schema only declares 200,
   // so they throw an error with code='not_found' and statusCode=404 instead.
+  //
+  // 2.6) Application invalid_cursor errors (thrown by accounts postings handler — T-03-06a)
+  // Cursor decode failures must return 400 with code='invalid_cursor', not 500.
+  if (pgCode === "invalid_cursor") {
+    sendProblem(
+      400,
+      buildProblem(
+        400,
+        "invalid_cursor",
+        "Invalid cursor",
+        error.message ?? "The cursor parameter is malformed or expired.",
+        instance,
+      ),
+    );
+    return;
+  }
+
   if (pgCode === "not_found" || (error as unknown as { statusCode?: number }).statusCode === 404) {
     sendProblem(
       404,
