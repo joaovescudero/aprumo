@@ -27,11 +27,15 @@ export async function withRetryOnSerializationFailure<T>(fn: () => Promise<T>): 
     try {
       return await fn();
     } catch (err) {
-      // Extract PG error code using type-safe pattern (no any)
-      // Analog: packages/core/tests/helpers/applyMigrationsToSchema.ts lines 372-386
+      // Extract PG error code using type-safe pattern (no any).
+      // Must check both err.code (postgres-js native PostgresError at COMMIT level)
+      // AND err.cause.code (Drizzle's DrizzleQueryError wrapping a PG DatabaseError for
+      // intra-transaction query failures). Mirrors pg-error-handler.ts:160 and
+      // transactions.ts:193 where the same dual-path check is applied.
       const pgCode =
-        typeof err === "object" && err !== null && "code" in err
-          ? (err as { code: unknown }).code
+        typeof err === "object" && err !== null
+          ? ((err as { code?: unknown }).code ??
+            (err as { cause?: { code?: unknown } }).cause?.code)
           : undefined;
 
       if (pgCode === SERIALIZATION_FAILURE && attempt < MAX_RETRIES) {
