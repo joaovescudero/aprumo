@@ -44,13 +44,15 @@ describe("withRetryOnSerializationFailure", () => {
     const err40001 = Object.assign(new Error("serialization failure"), { code: "40001" });
     const fn = vi.fn().mockRejectedValue(err40001);
 
-    const promise = withRetryOnSerializationFailure(fn);
-    // Advance timers through all 3 retry delays: 50ms, 100ms, 200ms
-    await vi.advanceTimersByTimeAsync(50);
-    await vi.advanceTimersByTimeAsync(100);
-    await vi.advanceTimersByTimeAsync(200);
+    // Drive timers while the promise is settling; use Promise.all so the rejection
+    // is always awaited and never becomes an unhandled rejection.
+    const [result] = await Promise.all([
+      expect(withRetryOnSerializationFailure(fn)).rejects.toMatchObject({ code: "40001" }),
+      // Advance through all 3 retry delays: 50ms, 100ms, 200ms
+      vi.advanceTimersByTimeAsync(50 + 100 + 200 + 1),
+    ]);
 
-    await expect(promise).rejects.toMatchObject({ code: "40001" });
+    void result; // result is undefined (rejects assertion)
     // 1 initial attempt + 3 retries = 4 total calls
     expect(fn).toHaveBeenCalledTimes(4);
   });
