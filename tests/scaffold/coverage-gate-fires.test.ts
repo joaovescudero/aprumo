@@ -15,12 +15,19 @@
 
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "../..");
 const FIXTURES_DIR = path.join(REPO_ROOT, "packages/core/src/__fixtures__");
 const UNCOVERED_FILE = path.join(FIXTURES_DIR, "uncovered.ts");
+
+// Isolated coverage dir for the NESTED vitest run. Without this, the spawned
+// `vitest --coverage` shares ./coverage/.tmp with the outer Coverage Gate run
+// (Job 5), and the inner run wipes the outer's .tmp mid-flight, surfacing as
+// "Something removed the coverage directory ... coverage/.tmp". See CI Job 5.
+const NESTED_COVERAGE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "aprumo-cov-gate-"));
 
 describe("INF-04: Coverage gate fires on 0%-covered code", () => {
   beforeAll(() => {
@@ -47,6 +54,12 @@ describe("INF-04: Coverage gate fires on 0%-covered code", () => {
     } catch {
       // Directory not empty or doesn't exist — ignore
     }
+    // Remove the isolated nested-coverage dir
+    try {
+      fs.rmSync(NESTED_COVERAGE_DIR, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
   });
 
   it("pnpm vitest run --coverage exits non-zero when core coverage is below 90%", {
@@ -56,7 +69,15 @@ describe("INF-04: Coverage gate fires on 0%-covered code", () => {
     // We use json reporter to keep output clean and check for threshold failure message
     const result = spawnSync(
       "pnpm",
-      ["vitest", "run", "--coverage", "--reporter=json", "--project=@aprumo/core"],
+      [
+        "vitest",
+        "run",
+        "--coverage",
+        // Isolate from the outer Coverage Gate run's ./coverage/.tmp to avoid a dir-wipe race
+        `--coverage.reportsDirectory=${NESTED_COVERAGE_DIR}`,
+        "--reporter=json",
+        "--project=@aprumo/core",
+      ],
       {
         cwd: REPO_ROOT,
         encoding: "utf8",
