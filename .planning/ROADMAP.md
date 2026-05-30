@@ -255,7 +255,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 |-------|----------------|--------|-----------|
 | 1. Monorepo Scaffold + CI + Dev Security | 7/7 | Complete   | 2026-05-22 |
 | 2. Schema Foundation + DB Tooling | 15/15 | Complete   | 2026-06-02 |
-| 3. Core Ledger API | 0/TBD | Not started | - |
+| 3. Core Ledger API | 0/7 | Planned | - |
 | 4. Balance Worker + Reconciliation | 0/TBD | Not started | - |
 | 5. Connector Base Interface | 0/TBD | Not started | - |
 | 6. Starkbank Connector | 0/TBD | Not started | - |
