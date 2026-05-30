@@ -1,0 +1,69 @@
+name: Feature Request
+description: Suggest a new feature or improvement for Aprumo
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your feature request! Aprumo is an open-source financial ledger layer — please
+        check the [ROADMAP](./.planning/ROADMAP.md) and [PRD](./PRD.md) before submitting to
+        see if your request is already planned.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Description
+      description: What problem does this feature solve? What is the current limitation?
+      placeholder: |
+        Currently, when integrating with provider X, there is no way to ...
+        This means users must ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you would like to see.
+      placeholder: |
+        Add a new method `foo()` to `@aprumo/connector-base` that ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Describe any alternative solutions you have considered.
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Affected Package(s)
+      description: Which package(s) would this feature affect?
+      multiple: true
+      options:
+        - "@aprumo/core"
+        - "@aprumo/connector-base"
+        - "@aprumo/connector-starkbank"
+        - "@aprumo/webhooks"
+        - "New package"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context, links to related issues, or references here.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have checked the ROADMAP and this is not already planned
+          required: true
+        - label: I have searched existing issues and this is not a duplicate
+          required: true

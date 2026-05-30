@@ -1,0 +1,31 @@
+name: Setup Node + pnpm
+description: >
+  Composite action: install pnpm via pnpm/action-setup@v6 (handles Corepack internally),
+  configure Node with pnpm store cache, then install frozen dependencies.
+  NOTE: Do NOT add a corepack-enable step — pnpm/action-setup@v6 activates Corepack
+  internally. Using both causes a cache race (RESEARCH.md Pitfall 5).
+
+inputs:
+  node-version:
+    description: Node.js version to use
+    required: false
+    default: "22"
+
+runs:
+  using: composite
+  steps:
+    - name: Install pnpm
+      uses: pnpm/action-setup@v6
+      with:
+        run_install: false
+        # pnpm version is read from packageManager field in root package.json
+
+    - name: Set up Node.js with pnpm cache
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: pnpm
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile

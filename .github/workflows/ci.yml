@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# D-13: Cancel in-progress runs for the same ref to avoid redundant work
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Job 1: Lint — Biome check across all files
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm lint
+
+  # Job 2: TypeCheck — tsc project references across all packages
+  typecheck:
+    name: TypeCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm typecheck
+
+  # Job 3: Build — tsc build across all packages
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm build
+
+  # Job 4: Test — Node 22 + 24 matrix (fail-fast: false so both versions always run)
+  test:
+    name: Test (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ["22", "24"]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          node-version: ${{ matrix.node-version }}
+      # secret-scan.test.ts asserts gitleaks is on PATH and runs detect fixtures (INF-06).
+      # Install the same pinned version the Gitleaks history job uses (D-06).
+      - name: Install gitleaks
+        run: curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | sudo tar -xz -C /usr/local/bin gitleaks
+      - run: pnpm test
+
+  # Job 5: Coverage Gate — single Node 22 (NOT a matrix job)
+  # Rationale: Node version is orthogonal to v8 coverage provider behavior (v8 is a Node
+  # built-in). Running coverage gate on Node 22 only is sufficient. The test matrix (Job 4)
+  # already validates behavior on Node 22 and 24. Duplicating coverage on Node 24 would add
+  # CI time without meaningful signal. Coverage gate remains on Node 22 (D-25, D-26).
+  coverage-gate:
+    name: Coverage Gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      # secret-scan.test.ts (run as part of the coverage suite) asserts gitleaks on PATH (INF-06).
+      - name: Install gitleaks
+        run: curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | sudo tar -xz -C /usr/local/bin gitleaks
+      - name: Run tests with coverage
+        run: pnpm vitest run --coverage
+      - name: Report coverage on PR
+        uses: davelosert/vitest-coverage-report-action@v2
+        if: always()
+        with:
+          json-summary-path: ./coverage/coverage-summary.json
+          json-final-path: ./coverage/coverage-final.json
+      - name: Upload lcov artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: ./coverage/lcov.info
+          # D-26: Only upload lcov.info — no dist/ or SBOM (those are Phase 9)
+
+  # Job 6: Changeset Check — only on PRs (not on push to main per RESEARCH.md Pitfall 8)
+  # pnpm changeset status --since=main exits 1 on main itself (no changesets "since main")
+  changeset-check:
+    name: Changeset Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # In a PR checkout the base branch is not a local ref, so `--since=main`
+      # fails with "Failed to find where HEAD diverged from main". Create the
+      # local main ref from origin before running the gate. (Skip if HEAD is main.)
+      - name: Ensure local main ref
+        run: git fetch origin main:main || true
+      - uses: ./.github/actions/setup
+      - run: pnpm changeset status --since=main
+
+  # Job 7: Gitleaks History — full git history scan with custom rules (D-06)
+  # fetch-depth: 0 required to scan complete history (not just latest commit)
+  # .gitleaks.toml applies custom starkbank-private-key rule (see RESEARCH.md Pattern 6)
+  # For org repos: add GITLEAKS_LICENSE secret (free at gitleaks.io) per RESEARCH.md Pitfall 6
+  gitleaks-history:
+    name: Gitleaks Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan full git history for secrets
+        run: |
+          # Use gitleaks CLI directly to apply custom .gitleaks.toml rules
+          # (starkbank-private-key rule requires --config .gitleaks.toml)
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | tar -xz gitleaks
+          ./gitleaks detect --config .gitleaks.toml --redact --no-banner
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # For org repos: add GITLEAKS_LICENSE secret (free at gitleaks.io) per RESEARCH.md Pitfall 6

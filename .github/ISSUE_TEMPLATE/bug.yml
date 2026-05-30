@@ -1,0 +1,86 @@
+name: Bug Report
+description: Report a bug in Aprumo
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill in as much detail as possible.
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Affected Package
+      description: Which Aprumo package is affected?
+      options:
+        - "@aprumo/core"
+        - "@aprumo/connector-base"
+        - "@aprumo/connector-starkbank"
+        - "@aprumo/webhooks"
+        - "Multiple packages"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: input
+    id: package-version
+    attributes:
+      label: Package Version
+      description: What version of the affected package are you using?
+      placeholder: "e.g. 0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js Version
+      description: What version of Node.js are you using? (`node --version`)
+      placeholder: "e.g. 22.22.3"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Provide a minimal example that reproduces the issue.
+      placeholder: |
+        1. Set up a transaction with ...
+        2. Call `postTransaction(...)` with ...
+        3. Observe error ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened? Include any error messages.
+    validations:
+      required: true
+
+  - type: textarea
+    id: log-output
+    attributes:
+      label: Relevant Log Output
+      description: Paste any relevant log output here. This will be formatted as code.
+      render: shell
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues and this is not a duplicate
+          required: true
+        - label: I have included a minimal reproducible example
+          required: false

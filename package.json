@@ -1,0 +1,31 @@
+{
+  "name": "aprumo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "packageManager": "pnpm@10.13.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "vitest run",
+    "typecheck": "tsc -b packages/*/tsconfig.json --noEmit",
+    "lint": "biome check .",
+    "changeset": "changeset",
+    "changeset:check": "bash scripts/changeset-required.sh",
+    "db:migrate": "echo 'placeholder — implemented in Phase 2' && exit 0",
+    "prepare": "lefthook install"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.15",
+    "@changesets/cli": "2.31.0",
+    "@commitlint/cli": "21.0.1",
+    "@commitlint/config-conventional": "21.0.1",
+    "@vitest/coverage-v8": "4.1.7",
+    "lefthook": "2.1.8",
+    "typescript": "6.0.3",
+    "vitest": "4.1.7"
+  }
+}

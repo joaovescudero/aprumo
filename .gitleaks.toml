@@ -1,0 +1,35 @@
+title = "aprumo gitleaks config"
+
+# Extend the default ruleset — do not replace it
+[extend]
+useDefault = true
+
+[[rules]]
+id = "starkbank-private-key"
+description = "Starkbank ECDSA private key (PEM)"
+regex = '''-----BEGIN EC PRIVATE KEY-----'''
+tags = ["starkbank", "key", "EC"]
+
+  [[rules.allowlists]]
+  description = "Allow PEM header literal in test fixtures, example files, and test files (T-1-01: dummy headers, not real keys)"
+  paths = ['''__fixtures__/''', '''\.example$''', '''\.test\.ts$''']
+
+[[rules]]
+id = "generic-env-secret"
+description = "Generic SECRET= or API_KEY= or PRIVATE_KEY= in non-fixture files"
+regex = '''(?i)(?:SECRET|API_KEY|PRIVATE_KEY)\s*=\s*['"]?[a-zA-Z0-9+/]{20,}['"]?'''
+tags = ["env", "secret"]
+
+  [[rules.allowlists]]
+  description = "Allow in test fixtures, example files, and test files"
+  paths = ['''__fixtures__/''', '''\.example$''', '''\.test\.ts$''']
+
+[allowlist]
+description = "Global allowlist — prevent self-detection"
+paths = [
+  '''\.gitleaks\.toml''',
+  '''docs/adr/''',
+  # Planning artifacts (REVIEW.md, SUMMARY.md, PLAN.md, CONTEXT.md, RESEARCH.md, VERIFICATION.md, UAT.md, SECURITY.md)
+  # may quote rule patterns or PEM headers verbatim for documentation. These are not real secrets.
+  '''\.planning/.*\.md$''',
+]
