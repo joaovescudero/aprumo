@@ -71,6 +71,13 @@
       "when": 1748044920000,
       "tag": "0009_account_balance_last_posting_fk",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1780115756212,
+      "tag": "0010_postings_created_at",
+      "breakpoints": true
     }
   ]
 }
