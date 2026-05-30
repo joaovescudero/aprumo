@@ -694,22 +694,25 @@ describe('POST /v1/transactions', () => {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Cursor pagination ordering column for postings**
    - What we know: `postings.id` is UUIDv4 (random, not monotonic). No `created_at` on postings in the current schema.
    - What's unclear: Should Phase 3 add `created_at timestamptz DEFAULT now()` to postings via a new migration, or use a `bigserial` sequence, or accept UUID-based ordering?
    - Recommendation: Add `created_at timestamptz DEFAULT now() NOT NULL` to `postings` in a Phase 3 migration (`0010_postings_created_at.sql`). This is backward-compatible and enables meaningful time-based cursor pagination. Alternative: add `seq bigserial` for strict ordering in high-throughput scenarios.
+   - RESOLVED: `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` chosen (Plan 02 — migration 0010_postings_created_at.sql). Cursor pagination in GET /accounts/:id/postings orders by `created_at DESC`.
 
 2. **How to signal "duplicate idempotency key" vs "fresh insert" to return 200 vs 201**
    - What we know: `post_transaction` always returns the UUID; cannot distinguish fresh vs. duplicate from the return value alone.
    - What's unclear: Does the success criterion strictly require HTTP 200 (not 201) for duplicates, or is 201 with identical body acceptable?
    - Recommendation: Do a SELECT before calling `post_transaction`. If the key already exists, return 200 with the existing transaction. If not, call `post_transaction` and return 201. Concurrent race: the second concurrent call may reach `post_transaction` before the SELECT resolves — that case is handled by the PG function returning the winner's ID; the handler then fetches and returns 200 (it will observe `created_at` older than "just now").
+   - RESOLVED: SELECT-first pattern chosen (Plan 05). ROADMAP SC #2 requires exactly 200 (not 201) for concurrent duplicates; the SELECT-first approach enables this by detecting the existing key and returning 200 without calling post_transaction again. Concurrent race handled by the PG function's unique_violation handler.
 
 3. **Drizzle `db` instance: pass `pg.Pool` directly or create `drizzle(postgres(url))`**
    - What we know: Phase 2 uses `postgres` (postgres.js driver) for migrations and the testcontainers `createTestDb` returns a `pg.Pool` (node-postgres). The Drizzle schema was generated without specifying which driver.
    - What's unclear: The API server needs a Drizzle instance connected to the `aprumo_app` role. Should it use `drizzle-orm/postgres-js` (current Phase 2 driver) or `drizzle-orm/node-postgres` (`pg` Pool)?
    - Recommendation: Use `drizzle-orm/postgres-js` (same as Phase 2) for the production server. For tests, create a `drizzle-orm/node-postgres` instance from the `testDb.app` (`pg.Pool`) to match the existing test helper. This means two Drizzle client initializations — the server factory accepts a generic `db` interface, tests inject a `node-postgres` Drizzle instance.
+   - RESOLVED: Production server uses `drizzle-orm/postgres-js`; tests use `drizzle-orm/node-postgres` from `testDb.app` (pg.Pool). Server factory accepts `AnyDrizzleDb` type alias (`type AnyDrizzleDb = Parameters<typeof drizzle>[0]`) exported from server.ts — Plans 05/06 route plugins use this same alias for their db option type (Plan 04).
 
 ---
 

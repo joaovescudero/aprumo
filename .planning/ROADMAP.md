@@ -141,9 +141,12 @@ Plans:
 **Wave 3** *(blocked on Wave 2 + 03-02)*
 
 - [ ] 03-05-PLAN.md — TDD: POST /v1/transactions + GET /v1/transactions/:id (integration, testcontainers PG)
+
+**Wave 4** *(blocked on Wave 3 + 03-03 + 03-04)*
+
 - [ ] 03-06-PLAN.md — TDD: POST /v1/accounts + GET /v1/accounts/:id + GET /v1/accounts/:id/postings (integration)
 
-**Wave 4** *(blocked on Wave 3)*
+**Wave 5** *(blocked on Wave 4)*
 
 - [ ] 03-07-PLAN.md — GET /health + Swagger UI validation + main.ts entrypoint + coverage gate ≥90% LoC
 
