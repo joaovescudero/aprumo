@@ -46,9 +46,19 @@ export interface AccountRouteOptions {
 
 /** Decoded opaque cursor payload (D-05). */
 interface CursorPayload {
+  /** Full-precision PG timestamptz text (microseconds), e.g. "2026-03-04 05:06:07.123456+00". */
   created_at: string;
   id: string;
 }
+
+/**
+ * PostgreSQL timestamptz ::text format guard.
+ * Matches "YYYY-MM-DD HH:MM:SS[.ffffff]±HH[:MM]" — the exact shape produced by
+ * `created_at::text`. Validating here keeps malformed cursors on the 400 path
+ * (T-03-06a): a bad timestamp never reaches the SQL `::timestamptz` cast (which
+ * would otherwise throw inside the query and surface as 500).
+ */
+const PG_TIMESTAMPTZ_TEXT = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{1,6})?[+-]\d{2}(:\d{2})?$/;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -73,17 +83,28 @@ function decodeCursor(cursor: string): CursorPayload | null {
     ) {
       return null;
     }
-    return decoded as CursorPayload;
+    const payload = decoded as CursorPayload;
+    // created_at must be a valid PG timestamptz text — otherwise the SQL cast would
+    // throw at query time (500). Reject here so the route returns 400 (T-03-06a).
+    if (!PG_TIMESTAMPTZ_TEXT.test(payload.created_at)) {
+      return null;
+    }
+    return payload;
   } catch {
     return null;
   }
 }
 
 /**
- * Encode (created_at Date, id UUID) into an opaque base64url cursor string (D-05).
+ * Encode (created_at text, id UUID) into an opaque base64url cursor string (D-05).
+ *
+ * `createdAtText` is the PG `created_at::text` rendering (microsecond precision).
+ * Carrying the full-precision text — instead of a millisecond-truncated
+ * Date.toISOString() — is what makes the (created_at, id) keyset tiebreaker reliable
+ * for postings that share the same millisecond but differ in microseconds.
  */
-function encodeCursor(createdAt: Date, id: string): string {
-  return Buffer.from(JSON.stringify({ created_at: createdAt.toISOString(), id }), "utf-8").toString(
+function encodeCursor(createdAtText: string, id: string): string {
+  return Buffer.from(JSON.stringify({ created_at: createdAtText, id }), "utf-8").toString(
     "base64url",
   );
 }
@@ -249,18 +270,32 @@ export const accountRoutes: FastifyPluginAsync<AccountRouteOptions> = async (fas
       const baseWhere = eq(postings.account_id, id);
 
       // Keyset WHERE (D-04, D-05):
-      //   (created_at < cursorDate) OR (created_at = cursorDate AND id < cursorId)
-      // Values are Drizzle-parameterized via sql template (T-03-06b)
+      //   (created_at < cursorTs) OR (created_at = cursorTs AND id < cursorId)
+      // The cursor's created_at is bound as a STRING and cast with ::timestamptz in SQL.
+      // Binding a string (not a JS Date) is required for driver portability: postgres-js
+      // (production) rejects a Date bound as a parameter, while node-postgres accepts it.
+      // Values are Drizzle-parameterized via sql template (T-03-06b — no interpolation).
       const keysetWhere =
         cursorPayload !== null
-          ? sql`(${postings.created_at} < ${new Date(cursorPayload.created_at)} OR (${postings.created_at} = ${new Date(cursorPayload.created_at)} AND ${postings.id} < ${cursorPayload.id}))`
+          ? sql`(${postings.created_at} < ${cursorPayload.created_at}::timestamptz OR (${postings.created_at} = ${cursorPayload.created_at}::timestamptz AND ${postings.id} < ${cursorPayload.id}))`
           : null;
 
       const whereClause = keysetWhere !== null ? and(baseWhere, keysetWhere) : baseWhere;
 
-      // Fetch limit+1 rows to detect whether another page exists (D-06 pattern)
+      // Fetch limit+1 rows to detect whether another page exists (D-06 pattern).
+      // created_at_us selects the full-precision (microsecond) timestamp text used to
+      // build the next cursor — Drizzle hydrates created_at into a millisecond JS Date,
+      // which would silently drop the sub-millisecond component the tiebreaker needs.
       const rows = await db
-        .select()
+        .select({
+          id: postings.id,
+          transaction_id: postings.transaction_id,
+          account_id: postings.account_id,
+          amount_cents: postings.amount_cents,
+          direction: postings.direction,
+          created_at: postings.created_at,
+          created_at_us: sql<string>`${postings.created_at}::text`,
+        })
         .from(postings)
         .where(whereClause)
         .orderBy(desc(postings.created_at), desc(postings.id))
@@ -270,10 +305,13 @@ export const accountRoutes: FastifyPluginAsync<AccountRouteOptions> = async (fas
       const hasNextPage = rows.length > effectiveLimit;
       const pageRows = hasNextPage ? rows.slice(0, effectiveLimit) : rows;
 
-      // Encode cursor for last item on this page (D-05)
+      // Encode cursor for last item on this page (D-05).
+      // Uses created_at_us (full microsecond text), not the ms-truncated Date.
       const lastRow = pageRows[pageRows.length - 1];
       const nextCursor =
-        hasNextPage && lastRow !== undefined ? encodeCursor(lastRow.created_at, lastRow.id) : null;
+        hasNextPage && lastRow !== undefined
+          ? encodeCursor(lastRow.created_at_us, lastRow.id)
+          : null;
 
       return reply.status(200).send({
         data: pageRows.map((p) => ({
