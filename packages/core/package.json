@@ -26,7 +26,7 @@
     "test": "vitest run",
     "lint": "biome check src/",
     "start": "node dist/main.js",
-    "dev": "tsx watch src/main.ts --env-file=../../.env",
+    "dev": "tsx watch --env-file=../../.env src/main.ts",
     "db:migrate": "tsx --env-file=../../.env src/db/migrate.ts",
     "db:reset": "tsx --env-file=../../.env src/db/reset.ts",
     "db:generate": "drizzle-kit generate",
