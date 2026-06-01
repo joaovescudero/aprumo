@@ -327,4 +327,39 @@ describe("GET /v1/accounts/:id/postings", () => {
     expect(parsed.code).toBe("invalid_cursor");
     expect(parsed.status).toBe(400);
   });
+
+  it("returns 400 for a well-formed cursor missing the id field (T-03-06a)", async () => {
+    const { body: account } = await createAccount("asset", "cursor-missing-id");
+    // Valid base64url JSON, but no `id` — must be rejected before any SQL runs.
+    const cursor = Buffer.from(
+      JSON.stringify({ created_at: "2026-03-04 05:06:07.123456+00" }),
+      "utf-8",
+    ).toString("base64url");
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/v1/accounts/${account.id}/postings?cursor=${cursor}`,
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.payload).code).toBe("invalid_cursor");
+  });
+
+  it("returns 400 for a cursor whose created_at is not a PG timestamp (T-03-06a)", async () => {
+    const { body: account } = await createAccount("asset", "cursor-bad-ts");
+    // Well-formed base64url JSON with both fields, but created_at is garbage.
+    // Must be rejected by the format guard so it never reaches the ::timestamptz cast.
+    const cursor = Buffer.from(
+      JSON.stringify({ created_at: "definitely-not-a-timestamp", id: randomUUID() }),
+      "utf-8",
+    ).toString("base64url");
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/v1/accounts/${account.id}/postings?cursor=${cursor}`,
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.payload).code).toBe("invalid_cursor");
+  });
 });
