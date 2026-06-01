@@ -1,5 +1,5 @@
 ---
-status: diagnosed
+status: complete
 phase: 03-core-ledger-api
 source: [03-01-SUMMARY.md, 03-02-SUMMARY.md, 03-03-SUMMARY.md, 03-04-SUMMARY.md, 03-05-SUMMARY.md, 03-06-SUMMARY.md, 03-07-SUMMARY.md]
 started: 2026-06-01T00:00:00Z
@@ -46,9 +46,8 @@ note: "Live-verified: known account → 200 balance:null; unknown uuid → 404."
 
 ### 8. Postings Pagination (GET /v1/accounts/:id/postings)
 expected: With several postings on an account, GET /v1/accounts/{id}/postings?limit=2 returns 2 items + non-null next_cursor. Passing that cursor returns the next page with no overlap; last page has next_cursor null. limit > 200 rejected 422. Bad cursor → 400 invalid_cursor.
-result: issue
-reported: "page 2 (valid next_cursor from page 1) returns HTTP 500 internal_error; live verified against postgres-js production driver"
-severity: blocker
+result: pass
+note: "Initially BLOCKER — page 2 returned 500 under postgres-js (keyset bound a JS Date; node-postgres tests masked it). FIXED via TDD (RED 615ed60 → GREEN 44022d6): cursor now binds created_at as ::timestamptz string (driver-agnostic) and carries full-microsecond precision so the (created_at,id) tiebreaker is robust. New postgres-js parity test file covers the production driver. Re-verified live: page 2 → 200 with no overlap, next_cursor null; limit=201 → 422; bad cursor → 400."
 
 ### 9. Health Check (GET /health)
 expected: GET /health returns 200 {"status":"ok","postgres":"up"} when PG reachable. (503 unreachable path is unit-tested via stub.)
@@ -68,11 +67,13 @@ note: "Seeded via post_transaction (JSON body can't carry value precisely). API 
 ## Summary
 
 total: 11
-passed: 10
-issues: 1
+passed: 11
+issues: 0
 pending: 0
 skipped: 0
 blocked: 0
+
+resolved_during_uat: 3 (dev .env load, console.log secret leak, pagination page-2 500 + cursor precision)
 
 ## Gaps
 
@@ -103,8 +104,8 @@ blocked: 0
   debug_session: ""
 
 - truth: "GET /v1/accounts/:id/postings page 2 (using next_cursor from page 1) returns the next page of postings (API-09 cursor pagination)"
-  status: failed
-  reason: "User-flow live test: page 2 with a valid next_cursor returns HTTP 500 internal_error instead of the next page"
+  status: resolved
+  reason: "User-flow live test: page 2 with a valid next_cursor returns HTTP 500 internal_error instead of the next page. FIXED during UAT (TDD RED 615ed60 → GREEN 44022d6); re-verified live page 2 → 200."
   severity: blocker
   test: 8
   root_cause: "accounts.ts:256 builds the keyset WHERE with `${new Date(cursorPayload.created_at)}` bound as a raw Drizzle sql template parameter. The postgres-js driver (production driver wired in main.ts via drizzle-orm/postgres-js) rejects a JS Date object as a query parameter: `ERR_INVALID_ARG_TYPE: The \"string\" argument must be of type string or an instance of Buffer or ArrayBuffer. Received an instance of Date`. The 03-06 integration tests pass because they inject a node-postgres (pg.Pool) db via AnyDrizzleDb — node-postgres DOES serialize Date params, postgres-js does NOT. Driver-mismatch: tests exercise a different driver than production. Confirmed by isolated repro running the exact query through drizzle-orm/postgres-js. Page 1 (no cursor) works because it has no keyset clause and binds no Date."
@@ -120,8 +121,8 @@ blocked: 0
   debug_session: ""
 
 - truth: "Keyset cursor tiebreaker (created_at = X AND id < Y) is robust against same-timestamp collisions (D-04)"
-  status: failed
-  reason: "Secondary finding surfaced during diagnosis (not user-reported): cursor + Drizzle row hydration truncate created_at to millisecond precision, but postings.created_at is timestamptz with microsecond precision"
+  status: resolved
+  reason: "Secondary finding surfaced during diagnosis (not user-reported): cursor + Drizzle row hydration truncate created_at to millisecond precision, but postings.created_at is timestamptz with microsecond precision. FIXED during UAT in the same GREEN commit 44022d6 — cursor carries created_at::text (microseconds); tiebreaker test (same-µs postings) passes under postgres-js."
   severity: minor
   test: 8
   root_cause: "encodeCursor uses Date.toISOString() (millisecond precision) and Drizzle hydrates created_at into a JS Date (also ms). The DB stores microseconds (e.g. .258388). The keyset `created_at = $cursorMs` equality branch can never match the actual µs-precision row, so the id tiebreaker is effectively dead. Two postings sharing the same millisecond but differing in microseconds can be silently skipped at a page boundary. Low probability at v0.1 volume but a latent correctness bug in an append-only ledger listing."
