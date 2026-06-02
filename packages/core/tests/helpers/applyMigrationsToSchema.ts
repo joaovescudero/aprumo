@@ -228,10 +228,11 @@ export function rewriteForTestSchema(sql: string, schema: string): string {
  * @param schema - Target test schema name (e.g. 'test_abc123def456').
  */
 /**
- * Read a file with up to 3 retries on ENOENT.
+ * Read a file with up to 10 attempts (9 retries) on ENOENT.
  * macOS APFS can transiently return ENOENT under heavy concurrent I/O
  * (10+ forks all reading the same static files simultaneously). The file
  * is never deleted during a test run so ENOENT is always transient.
+ * Worst-case retry delay: ~3 seconds (exponential backoff, 20-500ms per attempt).
  */
 async function readWithRetry(filePath: string, folderForError: string): Promise<string> {
   let lastErr: unknown;
