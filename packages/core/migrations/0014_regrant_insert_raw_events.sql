@@ -1,0 +1,31 @@
+-- 0014_regrant_insert_raw_events.sql
+-- Restores INSERT privilege on raw_events to aprumo_app.
+--
+-- Context: 0007_revoke_insert_append_only.sql revoked INSERT on BOTH postings AND
+-- raw_events from aprumo_app. Revoking INSERT on postings is correct — the sole
+-- write path for postings is the post_transaction() SECURITY DEFINER function
+-- (see 0003_post_transaction.sql, CLAUDE.md Invariant #1).
+--
+-- However, revoking INSERT on raw_events was an error. CLAUDE.md defines the
+-- aprumo_app role as:
+--   "aprumo_app: SELECT/INSERT em todas; sem UPDATE/DELETE em postings/raw_events"
+-- INSERT on raw_events is PERMITTED and REQUIRED per the role spec.
+--
+-- More critically, CLAUDE.md Invariant #4 requires:
+--   "o INSERT em raw_events e o enfileiramento do job pg-boss devem acontecer
+--    na mesma transacao Postgres."
+-- The webhook ingestion path (Phase 4+) must atomically INSERT a row into
+-- raw_events and enqueue a pg-boss job — both operations performed by aprumo_app
+-- in a single transaction. Without INSERT on raw_events, this exact-once
+-- invariant cannot be satisfied without introducing a SECURITY DEFINER wrapper
+-- (which would be inconsistent with the documented architecture in ADR-003).
+--
+-- This migration corrects 0007's over-broad revoke by restoring INSERT on raw_events.
+-- INSERT on postings remains revoked (sole-write-path via post_transaction is correct).
+--
+-- See: CLAUDE.md roles section — "aprumo_app: SELECT/INSERT em todas; sem UPDATE/DELETE"
+-- See: CLAUDE.md Invariant #4 — exact-once webhook = INSERT raw_events + pg-boss in same tx
+-- See: ADR-003 — exact-once webhook rationale (pg-boss, not external queue)
+-- See: 0007_revoke_insert_append_only.sql — original (over-broad) revoke
+
+GRANT INSERT ON TABLE raw_events TO aprumo_app;

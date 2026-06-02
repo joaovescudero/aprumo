@@ -1,0 +1,25 @@
+-- 0011_drop_outbound_events_audit_trigger.sql
+-- Removes the audit trigger on outbound_events to prevent unbounded audit log growth.
+--
+-- Problem (WR-02): 0004_audit_triggers.sql attaches an AFTER UPDATE OR DELETE trigger
+-- to outbound_events. This table is high-frequency operational data — every delivery
+-- attempt updates status, attempts, last_error, and next_attempt_at. In production with
+-- meaningful webhook fanout, each event generates multiple audit rows (one per retry).
+-- outbound_events_audit has no TTL, no changed_at index, and no partition strategy,
+-- so it will grow unboundedly and degrade query performance over time.
+--
+-- Unlike accounts and outbound_endpoints (configuration tables with low update
+-- frequency where audit trails are genuinely needed), outbound_events state
+-- transitions are operational noise for audit purposes. Delivery attempt history
+-- for debugging belongs in a dedicated table with explicit TTL — that is a separate
+-- Phase 7+ concern.
+--
+-- This migration drops only the trigger. The outbound_events_audit shadow table is
+-- retained for now (it may still receive rows via other code paths or future use),
+-- but it will stop being populated by delivery-status updates.
+--
+-- See: WR-02 review finding in 02-REVIEW.md
+-- See: 0004_audit_triggers.sql (trigger was created here)
+-- See: CLAUDE.md Invariant #6 (audit requirement applies to CONFIG tables, not ops)
+
+DROP TRIGGER IF EXISTS outbound_events_audit_trigger ON outbound_events;

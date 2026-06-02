@@ -24,7 +24,49 @@ import postgres from "postgres";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SEED_SQL_PATH = path.resolve(__dirname, "../../migrations/0006_seed_dev.sql");
 
+/**
+ * WR-06: Structural validation for seed SQL content.
+ *
+ * Strips leading SQL line-comments (lines starting with "--") and blank lines,
+ * then verifies the first non-skipped line begins with the DO $$ pattern.
+ *
+ * This guard prevents dependency confusion attacks where a malicious file
+ * substitutes arbitrary SQL that would run as the migration role via sql.unsafe().
+ *
+ * @param content - Raw SQL content to validate
+ * @param label   - Optional label (e.g. file path) for the error message
+ * @throws Error if the first non-comment, non-blank line does not match DO $$
+ */
+export function assertSeedStructure(content: string, label?: string): void {
+  const lines = content.split("\n");
+  const firstRealLine = lines.find((line) => {
+    const trimmed = line.trim();
+    return trimmed.length > 0 && !trimmed.startsWith("--");
+  });
+
+  if (firstRealLine === undefined || !/^\s*DO\s+\$\$/.test(firstRealLine)) {
+    const location = label !== undefined ? ` at ${label}` : "";
+    throw new Error(
+      `Seed file${location} does not begin with the expected DO $$ block. ` +
+        "Refusing to execute unrecognised content.",
+    );
+  }
+}
+
 async function runSeed(databaseUrl?: string): Promise<void> {
+  // CR-01: Environment allowlist guard — mirrors reset.ts.
+  // Seed inserts accounts accumulate without a unique constraint on owner_ref, and
+  // executes sql.unsafe() as the migration role. Running against production is a
+  // data-corruption risk even though post_transaction is idempotent on idempotency_key.
+  const SAFE_ENVS = new Set(["development", "test"]);
+  const nodeEnv = process.env.NODE_ENV ?? "";
+  if (!SAFE_ENVS.has(nodeEnv)) {
+    throw new Error(
+      `db:seed refused: NODE_ENV="${nodeEnv}" is not a permitted environment. ` +
+        `Allowed values: development, test.`,
+    );
+  }
+
   const url = databaseUrl ?? process.env.DATABASE_URL;
   if (!url) {
     throw new Error(
@@ -33,6 +75,14 @@ async function runSeed(databaseUrl?: string): Promise<void> {
   }
 
   const seedContent = readFileSync(SEED_SQL_PATH, "utf8");
+
+  // WR-06: Structural validation before executing sql.unsafe().
+  // Verify the seed file begins with the expected `DO $$` pattern to guard against
+  // dependency confusion attacks where a malicious package substitutes the file with
+  // arbitrary SQL that would run as the migration role.
+  // Log the resolved path for audit purposes.
+  process.stdout.write(`Loading seed from: ${SEED_SQL_PATH}\n`);
+  assertSeedStructure(seedContent, SEED_SQL_PATH);
 
   // { max: 1 } — single connection, no pool overhead for a one-shot seed script.
   const sql = postgres(url, { max: 1 });

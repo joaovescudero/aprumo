@@ -104,32 +104,35 @@ export async function runMigrations(databaseUrl?: string): Promise<void> {
   const sql = postgres(url, { max: 1 });
 
   try {
-    // Apply each migration in order, tracking applied migrations in __drizzle_migrations.
-    await sql.begin(async (tx) => {
-      // Ensure the migrations tracking table exists.
-      await tx`
-        CREATE SCHEMA IF NOT EXISTS drizzle
-      `;
-      await tx`
-        CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
-          id        serial PRIMARY KEY,
-          hash      text    NOT NULL,
-          created_at bigint
-        )
-      `;
+    // Ensure the migrations tracking table exists (outside any per-migration transaction
+    // so CREATE SCHEMA/TABLE IF NOT EXISTS is committed before we start iterating).
+    await sql`
+      CREATE SCHEMA IF NOT EXISTS drizzle
+    `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
+        id        serial PRIMARY KEY,
+        hash      text    NOT NULL,
+        created_at bigint
+      )
+    `;
 
-      // Collect hashes already applied.
-      const applied = await tx<{ hash: string }[]>`
-        SELECT hash FROM drizzle.__drizzle_migrations ORDER BY id ASC
-      `;
-      const appliedHashes = new Set(applied.map((r) => r.hash));
+    // Collect hashes already applied.
+    const applied = await sql<{ hash: string }[]>`
+      SELECT hash FROM drizzle.__drizzle_migrations ORDER BY id ASC
+    `;
+    const appliedHashes = new Set(applied.map((r) => r.hash));
 
-      for (const migration of migrations) {
-        if (appliedHashes.has(migration.hash)) {
-          // Already applied — idempotent skip.
-          continue;
-        }
+    // Apply each migration in its own transaction so a failure in migration N
+    // does not roll back previously-committed migrations N-1, N-2, …
+    // (which would trigger non-idempotent DDL errors on retry — e.g. "table already exists").
+    for (const migration of migrations) {
+      if (appliedHashes.has(migration.hash)) {
+        // Already applied — idempotent skip.
+        continue;
+      }
 
+      await sql.begin(async (tx) => {
         // Execute each statement in the migration file.
         for (const statement of migration.sql) {
           const trimmed = statement.trim();
@@ -137,13 +140,13 @@ export async function runMigrations(databaseUrl?: string): Promise<void> {
           await tx.unsafe(trimmed);
         }
 
-        // Record the migration as applied.
+        // Record the migration as applied atomically with its DDL.
         await tx`
           INSERT INTO drizzle.__drizzle_migrations (hash, created_at)
           VALUES (${migration.hash}, ${migration.folderMillis})
         `;
-      }
-    });
+      });
+    }
   } finally {
     await sql.end();
   }

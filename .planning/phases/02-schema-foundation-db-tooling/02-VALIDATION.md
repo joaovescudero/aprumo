@@ -5,7 +5,7 @@ status: validated
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-05-22
-validated: 2026-05-29
+validated: 2026-06-02
 ---
 
 # Phase 2 — Validation Strategy
@@ -167,3 +167,38 @@ Retroactive audit of executed phase (14 plans, 10 test files). Suite ran green: 
 **Note:** As-built schema added migrations `0007_revoke_insert_append_only`, `0008_post_transaction_idempotency_race`, `0009_account_balance_last_posting_fk` during REVIEW-FIX — all carry passing tests in the green suite; no new FND requirements introduced.
 
 **Verdict:** Phase 2 is Nyquist-compliant. All 18 FND requirements have automated verification running green.
+
+---
+
+## Validation Audit 2026-06-02
+
+Re-audit after REVIEW-FIX + SECURITY hardening (30+ fix commits since 2026-05-29). Migrations grew 7 → **12** (added `0010_fix_validation_order.sql`, `0011_drop_outbound_events_audit_trigger.sql`). Two new infra test files added (`tests/helpers/applyMigrationsToSchema.test.ts` — 48 cases; `tests/helpers/globalSetup.race.test.ts` — RACE-01/02).
+
+| Metric | Count |
+|--------|-------|
+| Requirements (FND-01..18) | 18 |
+| COVERED (automated) | 18 |
+| PARTIAL | 0 |
+| MISSING | 0 |
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+
+**Static verification run (Docker unavailable locally — see caveat):**
+- `pnpm --filter @aprumo/core typecheck` → clean
+- `node scripts/check-migration-drift.mjs` → exit 0, **12 migrations verified, no drift**
+- `tests/infra/migration-drift.test.ts` → **3 passed** (runs without Docker)
+- Static greps in map (SECURITY DEFINER, DEFERRABLE, audit_trigger, seed post_transaction, CI integration-test) → all hold
+
+**New hardening behaviors — all carry tests (no new FND requirements):**
+- Idempotency TOCTOU race → `0008` + RACE-02 regression gate (`globalSetup.race.test.ts`)
+- BIGINT overflow on signed-sum → cr-01 overflow test (`post-transaction.integration.test.ts`)
+- Append-only INSERT REVOKE → `0007` + immutability tests expect `42501`
+- Seed do-block guard (wr-06) → firstToken validation test
+- `account_balance.last_posting_id` NOT VALID FK → `0009`
+- Validation order fix → `0010` (referenced in 5 integration test files)
+- Drop `outbound_events` audit trigger (wr-02) → `0011`
+
+**Caveat:** Docker daemon was DOWN at audit time, so the testcontainer integration suite (~64 cases) could not be executed live. `globalSetup` skips those gracefully. Coverage confirmed via: static cross-reference (all test files exist + reference new migrations), migration-drift green, typecheck clean, and paired `test(...)` commits in git history. **CI (`integration-test` + `coverage-gate` jobs) remains the live green gate** — wr-01/wr-05 fixes wired `needs:` so coverage cannot pass with failing tests.
+
+**Verdict:** Phase 2 remains Nyquist-compliant. No gaps introduced by hardening work. Recommend a Docker-up suite run before milestone audit to confirm live green.

@@ -75,9 +75,13 @@ jobs:
   # built-in). Running coverage gate on Node 22 only is sufficient. The test matrix (Job 4)
   # already validates behavior on Node 22 and 24. Duplicating coverage on Node 24 would add
   # CI time without meaningful signal. Coverage gate remains on Node 22 (D-25, D-26).
+  #
+  # WR-05 fix: `test` is now in needs so coverage only runs after all test matrix jobs
+  # pass. Without this, coverage could show green while a Node 22/24 test job is red,
+  # allowing a merge with failing tests if branch protection only requires coverage-gate.
   coverage-gate:
     name: Coverage Gate
-    needs: [lint, typecheck, build]
+    needs: [lint, typecheck, build, test]
     runs-on: ubuntu-latest
     permissions:
       contents: read

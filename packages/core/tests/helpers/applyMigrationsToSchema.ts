@@ -91,26 +91,30 @@ export function splitMigrationStatements(sql: string): string[] {
     // Check for dollar-quote delimiter (plain `$$` or named `$tag$`).
     // Guard with !inLineComment to prevent a $$ sequence inside a `--` comment
     // from flipping inDollarQuote.
+    //
+    // CR-04 fix: scan only up to the next non-identifier character from i+1 to
+    // build the tag inline, avoiding the greedy `indexOf("$")` that could skip
+    // across `$1` parameter placeholders or PL/pgSQL variable references.
     if (!inLineComment && ch === "$") {
-      // Find the closing `$` of this potential dollar-quote delimiter.
-      const closeIdx = sql.indexOf("$", i + 1);
-      if (closeIdx !== -1) {
-        const tag = sql.slice(i, closeIdx + 1); // e.g. "$$" or "$function$"
+      // Walk forward consuming only word characters ([A-Za-z0-9_]) to build the tag.
+      // Stop at the first non-word character and require it to be `$` for a valid tag.
+      let j = i + 1;
+      while (j < sql.length && /[A-Za-z0-9_]/.test(sql[j] ?? "")) j++;
+      if ((sql[j] ?? "") === "$") {
+        const tag = sql.slice(i, j + 1); // e.g. "$$" or "$function$"
         if (!inDollarQuote) {
-          // Opening delimiter: tag must match PostgreSQL rules (only alphanumeric + underscore).
-          if (/^\$[A-Za-z0-9_]*\$$/.test(tag)) {
-            currentDollarTag = tag;
-            inDollarQuote = true;
-            current += tag;
-            i = closeIdx + 1;
-            continue;
-          }
+          // Opening delimiter: tag already satisfies PostgreSQL rules by construction.
+          currentDollarTag = tag;
+          inDollarQuote = true;
+          current += tag;
+          i = j + 1;
+          continue;
         } else if (tag === currentDollarTag) {
           // Closing delimiter matches the opening tag — exit dollar-quote mode.
           inDollarQuote = false;
           currentDollarTag = null;
           current += tag;
-          i = closeIdx + 1;
+          i = j + 1;
           continue;
         }
       }
@@ -224,10 +228,11 @@ export function rewriteForTestSchema(sql: string, schema: string): string {
  * @param schema - Target test schema name (e.g. 'test_abc123def456').
  */
 /**
- * Read a file with up to 3 retries on ENOENT.
+ * Read a file with up to 10 attempts (9 retries) on ENOENT.
  * macOS APFS can transiently return ENOENT under heavy concurrent I/O
  * (10+ forks all reading the same static files simultaneously). The file
  * is never deleted during a test run so ENOENT is always transient.
+ * Worst-case retry delay: ~3 seconds (exponential backoff, 20-500ms per attempt).
  */
 async function readWithRetry(filePath: string, folderForError: string): Promise<string> {
   let lastErr: unknown;
@@ -380,9 +385,15 @@ export async function applyMigrationsToSchema(
                 .trim()
                 .toUpperCase()
                 .slice(0, 20);
-              const isRoleStatement =
-                firstToken.startsWith("CREATE ROLE") || firstToken.startsWith("DO ");
-              if ((pgCode === "23505" || pgCode === "42710") && isRoleStatement) {
+              // WR-01 fix: tighten the DO-block check to only tolerate 23505/42710
+              // for role-creation DO blocks (i.e. 0001_roles.sql). The previous check
+              // matched any "DO " prefix, which would silently swallow duplicate errors
+              // from future data-migration DO blocks, leaving the schema partially applied.
+              const isRoleCreationBlock =
+                firstToken.startsWith("CREATE ROLE") ||
+                (firstToken.startsWith("DO ") &&
+                  /CREATE\s+ROLE\s+aprumo_/i.test(trimmed.replace(/--[^\n]*/g, "")));
+              if ((pgCode === "23505" || pgCode === "42710") && isRoleCreationBlock) {
                 // Role already created by a concurrent fork — safely idempotent.
                 // Savepoint is automatically rolled back on error; outer tx continues.
                 return;

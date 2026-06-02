@@ -1,183 +1,316 @@
 ---
 phase: 02-schema-foundation-db-tooling
-reviewed: 2026-05-25T14:00:00Z
-depth: standard
-files_reviewed: 2
+reviewed: 2026-06-02T00:00:00Z
+depth: deep
+files_reviewed: 38
 files_reviewed_list:
-  - packages/core/tests/helpers/globalSetup.race.test.ts
+  - .github/workflows/ci.yml
+  - packages/core/drizzle.config.ts
+  - packages/core/migrations/0000_init_tables.sql
+  - packages/core/migrations/0001_roles.sql
+  - packages/core/migrations/0002_grants.sql
+  - packages/core/migrations/0003_post_transaction.sql
+  - packages/core/migrations/0004_audit_triggers.sql
+  - packages/core/migrations/0005_double_entry_trigger.sql
+  - packages/core/migrations/0006_seed_dev.sql
+  - packages/core/migrations/0007_revoke_insert_append_only.sql
+  - packages/core/migrations/0008_post_transaction_idempotency_race.sql
+  - packages/core/migrations/0009_account_balance_last_posting_fk.sql
+  - packages/core/migrations/0010_fix_validation_order.sql
+  - packages/core/migrations/0011_drop_outbound_events_audit_trigger.sql
+  - packages/core/migrations/0012_numeric_accumulator_post_transaction.sql
+  - packages/core/migrations/0013_revoke_execute_all_functions.sql
+  - packages/core/src/db/migrate.ts
+  - packages/core/src/db/reset.ts
+  - packages/core/src/db/schema.ts
+  - packages/core/src/db/seed.ts
+  - packages/core/tests/e2e/migration-e2e.integration.test.ts
   - packages/core/tests/globalSetup.ts
+  - packages/core/tests/helpers/applyMigrationsToSchema.test.ts
+  - packages/core/tests/helpers/applyMigrationsToSchema.ts
+  - packages/core/tests/helpers/createTestDb.test.ts
+  - packages/core/tests/helpers/createTestDb.ts
+  - packages/core/tests/helpers/globalSetup.race.test.ts
+  - packages/core/tests/infra/migration-drift.test.ts
+  - packages/core/tests/infra/seed-guard.test.ts
+  - packages/core/tests/schema/audit-triggers.integration.test.ts
+  - packages/core/tests/schema/constraint-trigger.integration.test.ts
+  - packages/core/tests/schema/post-transaction.integration.test.ts
+  - packages/core/tests/schema/revoke.integration.test.ts
+  - packages/core/tests/schema/schema-shape.integration.test.ts
+  - packages/core/tests/setup/container.ts
+  - packages/core/tests/vitest.d.ts
+  - packages/core/vitest.config.ts
+  - scripts/check-migration-drift.mjs
+  - scripts/generate-migration-hashes.mjs
 findings:
-  critical: 1
-  warning: 2
-  info: 1
-  total: 4
-status: fixed
+  critical: 2
+  warning: 3
+  info: 3
+  total: 8
+status: issues_found
 ---
 
-# Phase 02 Plan 14: Code Review Report (Addendum)
+# Phase 02: Code Review Report
 
-**Reviewed:** 2026-05-25T14:00:00Z
-**Depth:** standard
-**Files Reviewed:** 2 (plan 02-14 gap-closure delta only)
+**Reviewed:** 2026-06-02T00:00:00Z
+**Depth:** deep
+**Files Reviewed:** 38
 **Status:** issues_found
 
 ## Summary
 
-This addendum reviews the two files changed by plan 02-14: `globalSetup.ts` (GREEN fix — role pre-creation) and `globalSetup.race.test.ts` (RED + RACE-02 tests documenting and asserting the fix boundary). The fix correctly uses PL/pgSQL `EXCEPTION WHEN duplicate_object` to atomically pre-create cluster-global roles before any Vitest worker fork, which is the right mechanism.
+Deep review of the Phase 2 schema foundation: 14 migrations (0000-0013), the TypeScript DB tooling layer (migrate.ts, reset.ts, seed.ts, schema.ts), test harness (testcontainers globalSetup, createTestDb, applyMigrationsToSchema), drift-gate scripts (generate-migration-hashes.mjs, check-migration-drift.mjs), and CI pipeline.
 
-One critical defect was found: `teardown()` calls `container.stop()` unconditionally, and the testcontainers v12 library passes `autoRemove=true` to the started container even when constructed via the `withReuse()` path. This means `APRUMO_TEST_REUSE=1` does not actually preserve the container across test runs — teardown destroys it. The reuse feature is silently broken.
+The migration chain is well-structured and demonstrates careful layering — each subsequent migration correctly supersedes and preserves invariants from earlier ones. The drift gate, seed guard (WR-06), idempotency race fix (0008), validation-order fix (0010), and numeric-accumulator fix (0012) all address real bugs correctly. However, two critical issues were found:
 
-Two warnings: the outer `catch` block in `setup()` conflates "Docker unavailable" with unexpected errors from within the role pre-creation block (e.g., `adminSql.end()` failure), causing misleading diagnostic messages. RACE-01 is a vacuous test on every run — if the race does not trigger (timing-dependent), it passes with zero assertions, providing no regression value.
+1. **Migration 0007 revokes INSERT on `raw_events` from `aprumo_app`**, directly contradicting CLAUDE.md role spec ("aprumo_app: SELECT/INSERT em todas; sem UPDATE/DELETE em postings/raw_events") and breaking the exact-once webhook invariant (Invariant 4) at Phase 4+ when the webhook ingestion path must INSERT into `raw_events` in the same transaction as pg-boss enqueueing.
+
+2. **`check_double_entry_balance()` (0005) has no `SET search_path`**, leaving it vulnerable to search-path injection attacks in production — unlike every other SECURITY DEFINER or privilege-sensitive function in the codebase which all set `SET search_path = public`.
+
+Three warnings and three info items round out the findings.
 
 ---
 
+## Narrative Findings (AI reviewer)
+
 ## Critical Issues
 
-### CR-01: `teardown()` destroys container when `APRUMO_TEST_REUSE=1` — `withReuse()` is silently inoperative
+### CR-01: `0007_revoke_insert_append_only.sql` revokes INSERT on `raw_events` from `aprumo_app` — contradicts CLAUDE.md role spec and breaks Invariant 4
 
-**File:** `packages/core/tests/globalSetup.ts:74-78`
+**File:** `packages/core/migrations/0007_revoke_insert_append_only.sql:19`
 
-**Issue:** The `teardown()` function calls `container.stop()` unconditionally:
-
-```typescript
-export async function teardown() {
-  if (container) {
-    await container.stop();
-  }
-}
+**Issue:** Migration 0007 issues:
+```sql
+REVOKE INSERT ON TABLE raw_events FROM aprumo_app;
 ```
 
-When `APRUMO_TEST_REUSE=1`, the `builder.withReuse()` flag is set before `builder.start()`. In testcontainers v12, the `reuseContainer()` internal method constructs a `StartedGenericContainer` with `this.autoRemove` as the final argument (see `generic-container.js` line 173):
+CLAUDE.md (roles section, line 74) specifies the `aprumo_app` privilege model as:
+> "aprumo_app: SELECT/INSERT em todas; sem UPDATE/DELETE em postings/raw_events."
 
-```javascript
-return new StartedGenericContainer(
-  container, host, inspectResult, boundPorts, name, waitStrategy,
-  this.autoRemove   // ← defaults to true, not reset by withReuse()
-);
+The spec explicitly says **no UPDATE/DELETE** on `raw_events`, but INSERT is permitted on all tables. Migration 0007 goes beyond the spec by revoking INSERT on `raw_events`, which is not authorised by CLAUDE.md.
+
+More critically, CLAUDE.md Invariant 4 requires:
+> "o INSERT em `raw_events` e o enfileiramento do job pg-boss devem acontecer **na mesma transacao Postgres**."
+
+The webhook ingestion path (implemented in Phase 4+) must atomically INSERT a row into `raw_events` and enqueue a pg-boss job. After 0007, `aprumo_app` cannot INSERT into `raw_events` directly and there is no `SECURITY DEFINER` function for `raw_events` inserts (unlike `post_transaction` for `postings`). The test at `post-transaction.integration.test.ts:302-311` confirms the revoke is active and tests for `42501` on INSERT — meaning the test suite validates the wrong behaviour and will mask this bug through Phase 4.
+
+After 0013, `aprumo_app` has EXECUTE only on `post_transaction`, leaving no write path to `raw_events` whatsoever from the application role.
+
+**Fix:** Create a new migration 0014 that restores INSERT on `raw_events` to `aprumo_app` (matching CLAUDE.md spec); or, preferably, issue a corrective migration that only revokes INSERT on `postings` and restores INSERT on `raw_events`. Alternatively create a `SECURITY DEFINER` function `ingest_raw_event(...)` owned by `aprumo_migration` to serve as the sole write path (analogous to `post_transaction`), and explicitly document this decision. The simplest fix matching the documented spec:
+
+```sql
+-- 0014_restore_raw_events_insert.sql
+-- Restores INSERT on raw_events to aprumo_app.
+-- 0007_revoke_insert_append_only.sql incorrectly revoked INSERT on raw_events.
+-- Per CLAUDE.md: aprumo_app must have SELECT/INSERT on ALL tables;
+-- only UPDATE/DELETE on postings/raw_events is prohibited.
+-- Per CLAUDE.md Invariant #4: INSERT into raw_events must occur in the same
+-- Postgres transaction as pg-boss job enqueueing — requires aprumo_app INSERT.
+GRANT INSERT ON TABLE raw_events TO aprumo_app;
 ```
 
-`autoRemove` defaults to `true` and is not altered by `withReuse()`. Consequently, `container.stop()` resolves to `stopContainer({ remove: true, removeVolumes: true })`, which stops **and removes** the container. The next invocation of `APRUMO_TEST_REUSE=1 pnpm test` finds no reusable container and starts a fresh one — incurring the full cold-start penalty every run. The feature documented at line 20 ("Enable container reuse for local dev speed") does not work.
+Also update `post-transaction.integration.test.ts:302-311` to assert that `aprumo_app` **can** INSERT into `raw_events` (no 42501 expected), and add the INSERT-revoke-on-postings-only test to `revoke.integration.test.ts`.
 
-Additionally, the SUMMARY for plan 02-14 reports "APRUMO_TEST_REUSE=1 path is idempotent: EXCEPTION duplicate_object absorbs 42710 on warm container" as a verified check — but this claim cannot be accurate if `teardown()` always destroys the container. The "warm container" scenario never materialises.
+---
 
-**Fix:** Guard `stop()` in `teardown()` so it is not called when the container was started in reuse mode:
+### CR-02: `check_double_entry_balance()` (migration 0005) has no `SET search_path` — susceptible to search-path injection
 
-```typescript
-let useReuseGlobal = false;  // capture at module scope
+**File:** `packages/core/migrations/0005_double_entry_trigger.sql:15-17`
 
-export async function setup(project: { provide: (key: string, value: unknown) => void }) {
-  const useReuse = process.env.APRUMO_TEST_REUSE === "1";
-  useReuseGlobal = useReuse;
-  // ... rest unchanged
-}
+**Issue:** The `check_double_entry_balance()` trigger function is defined without `SET search_path`:
 
-export async function teardown() {
-  // Do not stop a reused container — it is intentionally long-lived.
-  // Only stop containers we own (non-reuse mode).
-  if (container && !useReuseGlobal) {
-    await container.stop();
-  }
-}
+```sql
+CREATE OR REPLACE FUNCTION check_double_entry_balance()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
 ```
 
-Alternatively, call `container.stop({ remove: false })` in reuse mode to stop the container without removing it, so the Ryuk reaper can later clean it up without interfering with reuse-across-runs semantics.
+Every other privilege-sensitive function in the codebase sets `SET search_path = public` to prevent search-path injection:
+- `post_transaction` (0003, 0008, 0010, 0012): `SET search_path = public`
+- `audit_row_change` (0004): `SET search_path = public`
+
+Without `SET search_path`, if an attacker or misconfigured session can manipulate the session `search_path` before the deferred constraint trigger fires at COMMIT, the query `FROM postings WHERE transaction_id = NEW.transaction_id` could resolve to a shadow `postings` table in a different schema, returning a fraudulent zero sum and allowing unbalanced postings to pass the double-entry check. This undermines CLAUDE.md Invariant 2. The trigger is deferred to COMMIT (`DEFERRABLE INITIALLY DEFERRED`), meaning the session `search_path` in effect at COMMIT time is used — a window for manipulation.
+
+**Fix:**
+```sql
+CREATE OR REPLACE FUNCTION check_double_entry_balance()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  v_signed_sum bigint;
+BEGIN
+  -- ... (rest unchanged)
+```
+
+This should be applied as a new migration (e.g., 0014 or appended to an existing corrective migration) since 0005 is immutable per the drift gate.
 
 ---
 
 ## Warnings
 
-### WR-01: Outer `catch` block conflates "Docker unavailable" with unexpected role-creation errors — misleading diagnostic
+### WR-01: Duplicate `globalSetup` registration causes two testcontainers instances in `pnpm test` and coverage-gate
 
-**File:** `packages/core/tests/globalSetup.ts:65-71`
+**File:** `vitest.config.ts:17` and `packages/core/vitest.config.ts:9`
 
-**Issue:** The outer `try/catch` that wraps `builder.start()` also implicitly wraps the role-creation block (because the inner `try/catch/finally` only handles its own errors; `adminSql.end()` in the `finally` clause could throw and propagate to the outer catch). The outer catch logs:
-
-```typescript
-console.warn(`[globalSetup] Docker unavailable — integration tests will be skipped: ${msg}`);
-project.provide("pgUri", "");
+**Issue:** The root `vitest.config.ts` declares:
+```ts
+globalSetup: ["packages/core/tests/globalSetup.ts"],
+```
+And also includes `"packages/*/vitest.config.ts"` in `projects`, which resolves `packages/core/vitest.config.ts`, which itself declares:
+```ts
+globalSetup: ["./tests/globalSetup.ts"],
 ```
 
-If `adminSql.end()` throws an unexpected error after `container.start()` succeeds and roles are created, the outer catch would fire, log a misleading "Docker unavailable" message, and provide an empty `pgUri` — causing every integration test to skip. The container was actually started and would be leaked (no teardown because `container` is set but `project.provide("pgUri", "")` sends all workers to the skip path, so no test will call `teardown()` — actually `teardown()` runs unconditionally from the globalSetup lifecycle, so the container would be stopped, but the `pgUri` would be empty and all tests would skip).
+In Vitest workspace mode, both the root-level and project-level `globalSetup` are executed. Since both point to the same file (`packages/core/tests/globalSetup.ts`), the file runs twice: once in the root context and once in the core project context. Each execution calls `builder.start()`, starting a second PostgreSQL container in non-reuse mode (CI). This doubles container startup time and wastes CI resources. Worse, `project.provide("pgUri", pgUri)` is called twice with different URIs; which `pgUri` tests receive depends on Vitest's internal execution order, making this a potential source of non-deterministic integration test failures.
 
-The failure window is narrow (postgres-js connection cleanup failure) but the consequence — silently skipping all integration tests and reporting success — is disproportionate.
+The integration-test CI job (`pnpm --filter @aprumo/core test --run`) runs only the package project and is not affected. But `pnpm test` (test job, line 71) and `pnpm vitest run --coverage` (coverage-gate job, line 96) both run from the root and trigger the double-setup.
 
-**Fix:** Separate the catch scopes so "Docker unavailable" is identified correctly. The container-start failure and the role-creation failure are distinct failure modes:
+**Fix:** Remove the root-level `globalSetup` entry from `vitest.config.ts` and rely solely on the per-project declaration in `packages/core/vitest.config.ts`:
 
-```typescript
-try {
-  container = await builder.start();
-} catch (err) {
-  const msg = err instanceof Error ? err.message : String(err);
-  console.warn(`[globalSetup] Docker unavailable — integration tests will be skipped: ${msg}`);
-  project.provide("pgUri", "");
-  return;
-}
-
-// Container started — now pre-create roles.
-const pgUri = container.getConnectionUri();
-const adminSql = postgres(pgUri, { max: 1 });
-try {
-  await adminSql.unsafe(
-    `DO $$ BEGIN CREATE ROLE aprumo_app NOLOGIN NOSUPERUSER; EXCEPTION WHEN duplicate_object THEN NULL; END $$`
-  );
-  await adminSql.unsafe(
-    `DO $$ BEGIN CREATE ROLE aprumo_migration NOLOGIN NOSUPERUSER CREATEDB; EXCEPTION WHEN duplicate_object THEN NULL; END $$`
-  );
-} catch (roleErr) {
-  const roleMsg = roleErr instanceof Error ? roleErr.message : String(roleErr);
-  console.warn(`[globalSetup] Role pre-creation failed (non-fatal): ${roleMsg}`);
-} finally {
-  await adminSql.end();
-}
-
-project.provide("pgUri", pgUri);
+```ts
+// vitest.config.ts — remove:
+// globalSetup: ["packages/core/tests/globalSetup.ts"],
+export default defineConfig({
+  test: {
+    // no globalSetup here — per-package projects manage their own
+    projects: [
+      { test: { name: "root-tests", include: ["tests/**/*.test.ts"], environment: "node" } },
+      "packages/*/vitest.config.ts",
+    ],
+    coverage: { /* unchanged */ },
+  },
+});
 ```
 
 ---
 
-### WR-02: RACE-01 is a vacuous test — passes with zero assertions when the race does not trigger
+### WR-02: `outbound_events_audit` shadow table is orphaned after migration 0011 drops its trigger
 
-**File:** `packages/core/tests/helpers/globalSetup.race.test.ts:83-100`
+**File:** `packages/core/migrations/0011_drop_outbound_events_audit_trigger.sql:25`
 
-**Issue:** The test body conditionally asserts:
+**Issue:** Migration 0011 drops `outbound_events_audit_trigger` on `outbound_events` but retains the `outbound_events_audit` table. After 0011, the shadow table exists in the schema, is visible to `information_schema.tables` queries, and receives no writes. CLAUDE.md Invariant 6 reads: "qualquer tabela mutavel (configs, customers, endpoints) tem shadow *_audit populada por trigger." `outbound_events` is mutable (status, attempts, last_error, next_attempt_at are all updated) and was covered by this invariant at schema creation.
 
-```typescript
-if (errors.length > 0) {
-  const hasDuplicateRole = errors.some(...);
-  expect(hasDuplicateRole, ...).toBe(true);
-}
+The 0011 comment correctly notes the operational noise rationale, but the orphaned audit table creates two concrete issues: (1) tests in `schema-shape.integration.test.ts:184-198` verify `outbound_events_audit` exists — and it does — giving a false sense of audit coverage. (2) Future developers may query `outbound_events_audit` expecting content and get silent empty results.
+
+**Fix:** Either drop `outbound_events_audit` in a subsequent migration (0014+) and remove it from the expected audit tables in `schema-shape.integration.test.ts`; or add a prominent comment to `schema.ts` and the migration marking the table as intentionally empty:
+
+```ts
+// schema.ts: outbound_events_audit — shadow table retained but INTENTIONALLY UNPOPULATED.
+// Audit trigger was dropped in migration 0011 (high-frequency writes; no TTL strategy).
+// See 0011_drop_outbound_events_audit_trigger.sql for rationale.
+export const outboundEventsAudit = pgTable("outbound_events_audit", auditColumns);
 ```
 
-When the race does not trigger (both `DO/IF NOT EXISTS` blocks serialize due to OS scheduling), `errors.length === 0` and no `expect()` call is ever reached. Vitest marks the test as passed with zero assertions. This is documented by the comment at line 83: "If no errors occurred, the race did not trigger this run — that is OK." However, the consequence is that RACE-01 cannot serve as a regression gate: it cannot distinguish "race confirmed" from "both ran serially." It also cannot catch regressions where the error code changes (e.g., a future Postgres version uses a different SQLSTATE for pg_authid conflicts).
+---
 
-Furthermore, because `Promise.allSettled` is used and both connections share the same single-node test container, the two concurrent `DO` blocks frequently serialize at the Postgres lock level anyway — the race triggers only when both connections pass the `pg_roles` check simultaneously before either acquires the `pg_authid` row lock. On a lightly loaded test runner this is infrequent.
+### WR-03: `revoke.integration.test.ts` does not test INSERT revoke on `postings`/`raw_events` — gap in revoke coverage is misleading
 
-**Fix:** Either accept RACE-01 as pure documentation (move to a comment or a `.skip`-marked test so CI does not count it as a passing assertion), or restructure it to guarantee the race surface. The guaranteed form would create the role from `sqlA`, then set up a `pg_advisory_lock`-based barrier to synchronise both connections at the `CREATE ROLE` decision point. Simpler option: mark the test as `it.skip` with a comment explaining it is a documentation artifact, not a regression gate:
+**File:** `packages/core/tests/schema/revoke.integration.test.ts:22-57`
 
-```typescript
-it.skip("RACE-01: concurrent CREATE ROLE without EXCEPTION handling produces 23505 on pg_authid (documentation — non-deterministic, see RACE-02 for the regression gate)", async () => {
-  // ... body unchanged
+**Issue:** `revoke.integration.test.ts` tests `UPDATE` and `DELETE` revoke on `postings` and `raw_events` (from migration 0002), but contains no test for the INSERT revoke introduced by migration 0007. The INSERT revoke tests exist in `post-transaction.integration.test.ts:288-311`, but they are placed in the wrong test file: revoke enforcement belongs in `revoke.integration.test.ts` for discoverability.
+
+Compounding this, as documented in CR-01, the test at `post-transaction.integration.test.ts:302-311` asserts `42501` on INSERT into `raw_events` — but per CLAUDE.md that INSERT should be permitted, meaning the test validates the wrong (incorrect) behaviour and will pass until Phase 4 when the missing write path causes a production failure. A reader of `revoke.integration.test.ts` who checks "is INSERT on `raw_events` covered?" finds nothing, masking the violation.
+
+**Fix:** After applying the CR-01 corrective migration, add explicit INSERT tests to `revoke.integration.test.ts`:
+
+```ts
+describe("INSERT revoke enforcement", () => {
+  it("aprumo_app INSERT into postings -> SQLSTATE 42501", async () => {
+    await expect(
+      db.app.query(`INSERT INTO postings (id, transaction_id, account_id, amount_cents, direction)
+        VALUES (gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), 1, 'debit')`)
+    ).rejects.toMatchObject({ code: "42501" });
+  });
+
+  it("aprumo_app INSERT into raw_events -> succeeds (SELECT/INSERT em todas per CLAUDE.md)", async () => {
+    // aprumo_app retains INSERT on raw_events per CLAUDE.md role spec
+    await expect(
+      db.app.query(`INSERT INTO raw_events (provider, provider_event_id, payload_jsonb)
+        VALUES ('test', $1, '{}')`, [randomUUID()])
+    ).resolves.toBeDefined();
+  });
 });
 ```
-
-This preserves the documentation value without creating false confidence from a vacuous pass.
 
 ---
 
 ## Info
 
-### IN-01: `console.warn` in `globalSetup.ts` is consistent with prior convention but deviates from CLAUDE.md structured-logging mandate
+### IN-01: `readWithRetry` doc-comment says "3 retries" but implementation does 10 attempts
 
-**File:** `packages/core/tests/globalSetup.ts:57,69`
+**File:** `packages/core/tests/helpers/applyMigrationsToSchema.ts:231` and `238`
 
-**Issue:** CLAUDE.md mandates structured logging (pino) and prohibits `console.log`/`console.error` in production code. The `console.warn` calls in `globalSetup.ts` were present before plan 02-14 (line 69 pre-existed; line 57 was added by plan 02-14). The file is test infrastructure, not published production code, so the risk is low. `console.warn` in `globalSetup.race.test.ts` (lines 39, 121) follows the same established pattern used throughout the test suite for Docker-unavailable skip guards.
+**Issue:** The JSDoc comment at line 231 reads:
+```
+* Read a file with up to 3 retries on ENOENT.
+```
+But the loop on line 238 runs:
+```ts
+for (let attempt = 0; attempt < 10; attempt++) {
+```
 
-This is not a new deviation introduced by plan 02-14 — it mirrors the existing convention. No action required for the new lines; the pre-existing `console.warn` at line 69 is outside the scope of this review.
+The implementation does 10 attempts (not 3). The comment was not updated when the retry count was increased. No runtime impact, but the comment misleads future maintainers reasoning about worst-case retry delays (actual worst-case is ~3 seconds of retries, not ~140ms).
 
-**Fix:** No change required for test-only infrastructure files. If consistency with the CLAUDE.md mandate is desired for `globalSetup.ts`, route through `process.stderr.write` or use a minimal pino instance — but this is low priority.
+**Fix:**
+```ts
+/**
+ * Read a file with up to 10 retries on ENOENT.
+ * macOS APFS can transiently return ENOENT under heavy concurrent I/O ...
+ */
+```
 
 ---
 
-_Reviewed: 2026-05-25T14:00:00Z_
+### IN-02: `check-migration-drift.mjs` does not detect hashes in `migration-hashes.json` that have no corresponding journal entry
+
+**File:** `scripts/check-migration-drift.mjs:100-114`
+
+**Issue:** The drift check correctly detects migration files on disk absent from `_journal.json`, and journal entries whose files are missing or hash-mismatched. But it does NOT detect hash entries in `migration-hashes.json` that have no corresponding `_journal.json` entry. If a developer removes a migration from the journal (accidentally or to hide a change) while leaving its hash in the JSON file, the drift check passes silently — the reverse-disk check (lines 100-114) only compares `.sql` files against the journal, not hash-file entries against the journal.
+
+**Fix:** Add a third check after the existing reverse-file check:
+```js
+// 5b. Detect hash entries with no journal counterpart (stale/orphaned hashes)
+for (const tag of Object.keys(storedHashes)) {
+  if (!journalTags.has(tag)) {
+    process.stderr.write(
+      `DRIFT: ${tag} has a stored hash in migration-hashes.json but no entry in _journal.json\n`
+    );
+    driftedFiles.push(tag);
+    driftDetected = true;
+  }
+}
+```
+
+---
+
+### IN-03: Comment in `0013_revoke_execute_all_functions.sql` incorrectly implies explicit function grants survive `REVOKE ON ALL FUNCTIONS`
+
+**File:** `packages/core/migrations/0013_revoke_execute_all_functions.sql:22-23`
+
+**Issue:** The migration comment states:
+> "The explicit function-level grants are not affected by REVOKE ON ALL FUNCTIONS."
+
+This is incorrect. In PostgreSQL, `REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM aprumo_app` revokes EXECUTE from ALL functions, including those that received an earlier explicit `GRANT EXECUTE`. The subsequent `GRANT EXECUTE ON FUNCTION post_transaction(...)` at line 42 is **required** (not optional belt-and-suspenders) to restore `aprumo_app`'s access. If a future developer removes the re-grant believing the comment's claim that explicit grants survive, `aprumo_app` will silently lose access to `post_transaction`.
+
+No runtime bug exists since the re-grant is present. The risk is that the misleading comment becomes a maintenance hazard.
+
+**Fix:** Correct the comment:
+```sql
+-- IMPORTANT: REVOKE EXECUTE ON ALL FUNCTIONS revokes ALL existing function grants,
+-- including those issued by explicit prior GRANT EXECUTE statements.
+-- The GRANT EXECUTE below is REQUIRED — not belt-and-suspenders — to restore
+-- aprumo_app's access to post_transaction after the broad revoke above.
+-- If this re-grant is removed, aprumo_app loses all DB write capability.
+GRANT EXECUTE ON FUNCTION post_transaction(text, text, text, jsonb, posting_input[])
+  TO aprumo_app;
+```
+
+---
+
+_Reviewed: 2026-06-02T00:00:00Z_
 _Reviewer: Claude (gsd-code-reviewer)_
-_Depth: standard_
+_Depth: deep_

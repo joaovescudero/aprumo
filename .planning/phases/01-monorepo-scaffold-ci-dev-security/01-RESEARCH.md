@@ -29,7 +29,7 @@
 - D-11: Task runner = pnpm -r cru. Sem Turborepo/Nx
 - D-12: CI = um único .github/workflows/ci.yml com jobs paralelos + composite action .github/actions/setup/
 - D-13: Triggers = on: [pull_request, push: branches: [main]] com concurrency cancel-in-progress
-- D-14: Branch protection = strict PR + 1 review + status checks. Sem signed commits inicialmente
+- D-14: Branch protection = strict PR + code-owner review + status checks. Solo OSS: required_approving_review_count=0 com code-owner-review obrigatório (substitui contagem fixa de aprovações). Sem signed commits inicialmente
 
 **Housekeeping OSS**
 - D-15: Governance set: LICENSE (MIT), README.md skeleton, SECURITY.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md, issue templates, PR template
