@@ -1,20 +1,10 @@
 ---
 phase: 02-schema-foundation-db-tooling
 reviewed: 2026-06-02T00:00:00Z
-depth: standard
+depth: deep
 files_reviewed: 38
 files_reviewed_list:
   - .github/workflows/ci.yml
-  - docs/adr/0001-postgres-as-ledger-engine.md
-  - docs/adr/0002-fastify-http-framework.md
-  - docs/adr/0003-pg-boss-workflow.md
-  - docs/adr/0004-incremental-balance-worker.md
-  - docs/adr/0005-accounting-split-async-settlement.md
-  - docs/adr/0006-versioning-v01-v05.md
-  - docs/adr/0007-smart-routing-as-logical-failover.md
-  - docs/adr/0008-mit-core-enterprise-edition.md
-  - docs/adr/0009-drizzle-orm-migrations.md
-  - docs/adr/README.md
   - packages/core/drizzle.config.ts
   - packages/core/migrations/0000_init_tables.sql
   - packages/core/migrations/0001_roles.sql
@@ -23,23 +13,26 @@ files_reviewed_list:
   - packages/core/migrations/0004_audit_triggers.sql
   - packages/core/migrations/0005_double_entry_trigger.sql
   - packages/core/migrations/0006_seed_dev.sql
-  - packages/core/migrations/migration-hashes.json
   - packages/core/migrations/0007_revoke_insert_append_only.sql
   - packages/core/migrations/0008_post_transaction_idempotency_race.sql
   - packages/core/migrations/0009_account_balance_last_posting_fk.sql
   - packages/core/migrations/0010_fix_validation_order.sql
   - packages/core/migrations/0011_drop_outbound_events_audit_trigger.sql
-  - packages/core/package.json
+  - packages/core/migrations/0012_numeric_accumulator_post_transaction.sql
+  - packages/core/migrations/0013_revoke_execute_all_functions.sql
   - packages/core/src/db/migrate.ts
   - packages/core/src/db/reset.ts
   - packages/core/src/db/schema.ts
   - packages/core/src/db/seed.ts
   - packages/core/tests/e2e/migration-e2e.integration.test.ts
   - packages/core/tests/globalSetup.ts
+  - packages/core/tests/helpers/applyMigrationsToSchema.test.ts
   - packages/core/tests/helpers/applyMigrationsToSchema.ts
+  - packages/core/tests/helpers/createTestDb.test.ts
   - packages/core/tests/helpers/createTestDb.ts
   - packages/core/tests/helpers/globalSetup.race.test.ts
   - packages/core/tests/infra/migration-drift.test.ts
+  - packages/core/tests/infra/seed-guard.test.ts
   - packages/core/tests/schema/audit-triggers.integration.test.ts
   - packages/core/tests/schema/constraint-trigger.integration.test.ts
   - packages/core/tests/schema/post-transaction.integration.test.ts
@@ -47,201 +40,277 @@ files_reviewed_list:
   - packages/core/tests/schema/schema-shape.integration.test.ts
   - packages/core/tests/setup/container.ts
   - packages/core/tests/vitest.d.ts
-  - packages/core/tsconfig.json
   - packages/core/vitest.config.ts
   - scripts/check-migration-drift.mjs
   - scripts/generate-migration-hashes.mjs
 findings:
   critical: 2
   warning: 3
-  info: 2
-  total: 7
+  info: 3
+  total: 8
 status: issues_found
 ---
 
 # Phase 02: Code Review Report
 
 **Reviewed:** 2026-06-02T00:00:00Z
-**Depth:** standard
+**Depth:** deep
 **Files Reviewed:** 38
 **Status:** issues_found
 
 ## Summary
 
-This phase implements the Postgres schema foundation, migration pipeline, DB tooling (migrate/reset/seed), and the integration test harness (testcontainers + schema isolation). The core invariants from CLAUDE.md — append-only tables, double-entry balance, idempotency, and role-based access control — are structurally sound and well-implemented across the migration chain.
+Deep review of the Phase 2 schema foundation: 14 migrations (0000-0013), the TypeScript DB tooling layer (migrate.ts, reset.ts, seed.ts, schema.ts), test harness (testcontainers globalSetup, createTestDb, applyMigrationsToSchema), drift-gate scripts (generate-migration-hashes.mjs, check-migration-drift.mjs), and CI pipeline.
 
-The migration sequence is coherent: 0000 creates tables, 0001–0002 establish roles and grants, 0003 creates `post_transaction`, 0004–0005 add audit and double-entry triggers, 0007 revokes direct INSERT on append-only tables, 0008 fixes the idempotency race, 0010 fixes validation order for BIGINT_MIN, and 0011 drops the high-frequency audit trigger. The hash-based drift gate and the test helper's schema-isolation machinery are well-designed.
+The migration chain is well-structured and demonstrates careful layering — each subsequent migration correctly supersedes and preserves invariants from earlier ones. The drift gate, seed guard (WR-06), idempotency race fix (0008), validation-order fix (0010), and numeric-accumulator fix (0012) all address real bugs correctly. However, two critical issues were found:
 
-Two blockers were identified: a missing production guard in `seed.ts` and a logic error in a test guard that silently swallows the diagnostic error it was designed to surface. Three warnings cover a broad `DO`-statement error-swallowing pattern in the test helper, the absence of per-posting `amount_cents` overflow protection for the accumulator, and an over-broad `EXECUTE ON ALL FUNCTIONS` grant that pre-authorises future SECURITY DEFINER functions for `aprumo_app` without explicit review.
+1. **Migration 0007 revokes INSERT on `raw_events` from `aprumo_app`**, directly contradicting CLAUDE.md role spec ("aprumo_app: SELECT/INSERT em todas; sem UPDATE/DELETE em postings/raw_events") and breaking the exact-once webhook invariant (Invariant 4) at Phase 4+ when the webhook ingestion path must INSERT into `raw_events` in the same transaction as pg-boss enqueueing.
+
+2. **`check_double_entry_balance()` (0005) has no `SET search_path`**, leaving it vulnerable to search-path injection attacks in production — unlike every other SECURITY DEFINER or privilege-sensitive function in the codebase which all set `SET search_path = public`.
+
+Three warnings and three info items round out the findings.
+
+---
+
+## Narrative Findings (AI reviewer)
 
 ## Critical Issues
 
-### CR-01: seed.ts has no NODE_ENV guard — runnable in production
+### CR-01: `0007_revoke_insert_append_only.sql` revokes INSERT on `raw_events` from `aprumo_app` — contradicts CLAUDE.md role spec and breaks Invariant 4
 
-**File:** `packages/core/src/db/seed.ts:56`
-**Issue:** `runSeed()` (and its CLI entry point) has no `NODE_ENV` allowlist guard. `reset.ts` correctly refuses to run unless `NODE_ENV` is `development` or `test`. `seed.ts` does not apply the same guard. Running `pnpm db:seed` against a production database would INSERT two `accounts` rows on every invocation (no unique constraint on `owner_ref` prevents this from accumulating) and attempt `post_transaction('seed-tx-001', ...)` — the transaction is idempotent due to the UNIQUE constraint on `idempotency_key`, but accounts accumulate. More importantly, the seed executes arbitrary SQL (the `DO $$` block) as the migration role via `sql.unsafe()`, making accidental production execution a data-corruption risk.
+**File:** `packages/core/migrations/0007_revoke_insert_append_only.sql:19`
 
-**Fix:** Mirror the guard from `reset.ts` at the top of `runSeed()`:
-
-```typescript
-export async function runSeed(databaseUrl?: string): Promise<void> {
-  const SAFE_ENVS = new Set(["development", "test"]);
-  const nodeEnv = process.env.NODE_ENV ?? "";
-  if (!SAFE_ENVS.has(nodeEnv)) {
-    throw new Error(
-      `db:seed refused: NODE_ENV="${nodeEnv}" is not a permitted environment. ` +
-        `Allowed values: development, test.`,
-    );
-  }
-  // ... rest of function
-}
+**Issue:** Migration 0007 issues:
+```sql
+REVOKE INSERT ON TABLE raw_events FROM aprumo_app;
 ```
+
+CLAUDE.md (roles section, line 74) specifies the `aprumo_app` privilege model as:
+> "aprumo_app: SELECT/INSERT em todas; sem UPDATE/DELETE em postings/raw_events."
+
+The spec explicitly says **no UPDATE/DELETE** on `raw_events`, but INSERT is permitted on all tables. Migration 0007 goes beyond the spec by revoking INSERT on `raw_events`, which is not authorised by CLAUDE.md.
+
+More critically, CLAUDE.md Invariant 4 requires:
+> "o INSERT em `raw_events` e o enfileiramento do job pg-boss devem acontecer **na mesma transacao Postgres**."
+
+The webhook ingestion path (implemented in Phase 4+) must atomically INSERT a row into `raw_events` and enqueue a pg-boss job. After 0007, `aprumo_app` cannot INSERT into `raw_events` directly and there is no `SECURITY DEFINER` function for `raw_events` inserts (unlike `post_transaction` for `postings`). The test at `post-transaction.integration.test.ts:302-311` confirms the revoke is active and tests for `42501` on INSERT — meaning the test suite validates the wrong behaviour and will mask this bug through Phase 4.
+
+After 0013, `aprumo_app` has EXECUTE only on `post_transaction`, leaving no write path to `raw_events` whatsoever from the application role.
+
+**Fix:** Create a new migration 0014 that restores INSERT on `raw_events` to `aprumo_app` (matching CLAUDE.md spec); or, preferably, issue a corrective migration that only revokes INSERT on `postings` and restores INSERT on `raw_events`. Alternatively create a `SECURITY DEFINER` function `ingest_raw_event(...)` owned by `aprumo_migration` to serve as the sole write path (analogous to `post_transaction`), and explicitly document this decision. The simplest fix matching the documented spec:
+
+```sql
+-- 0014_restore_raw_events_insert.sql
+-- Restores INSERT on raw_events to aprumo_app.
+-- 0007_revoke_insert_append_only.sql incorrectly revoked INSERT on raw_events.
+-- Per CLAUDE.md: aprumo_app must have SELECT/INSERT on ALL tables;
+-- only UPDATE/DELETE on postings/raw_events is prohibited.
+-- Per CLAUDE.md Invariant #4: INSERT into raw_events must occur in the same
+-- Postgres transaction as pg-boss job enqueueing — requires aprumo_app INSERT.
+GRANT INSERT ON TABLE raw_events TO aprumo_app;
+```
+
+Also update `post-transaction.integration.test.ts:302-311` to assert that `aprumo_app` **can** INSERT into `raw_events` (no 42501 expected), and add the INSERT-revoke-on-postings-only test to `revoke.integration.test.ts`.
 
 ---
 
-### CR-02: beforeAll guard in post-transaction test silently swallows its own diagnostic error
+### CR-02: `check_double_entry_balance()` (migration 0005) has no `SET search_path` — susceptible to search-path injection
 
-**File:** `packages/core/tests/schema/post-transaction.integration.test.ts:29-50`
-**Issue:** The `beforeAll` guard is intended to detect when migration `0007_revoke_insert_append_only` has not been applied and abort with a clear diagnostic. The logic is broken: when `db.app.query(INSERT INTO postings ...)` **succeeds** (the revoke is missing), the code throws a custom `Error("beforeAll guard: aprumo_app could INSERT ...")`. This `Error` has no `.code` property. In the `catch` block the condition is:
+**File:** `packages/core/migrations/0005_double_entry_trigger.sql:15-17`
 
-```typescript
-typeof err === "object"   // true
-&& err !== null           // true
-&& "code" in err          // FALSE — custom Error has no .code
-&& ...                    // short-circuits
+**Issue:** The `check_double_entry_balance()` trigger function is defined without `SET search_path`:
+
+```sql
+CREATE OR REPLACE FUNCTION check_double_entry_balance()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
 ```
 
-The condition evaluates to `false`, the error is **not re-thrown**, and `beforeAll` silently continues. The later immutability tests then fail with "Expected promise to reject, but it resolved" — the exact obscure failure the guard was designed to prevent.
+Every other privilege-sensitive function in the codebase sets `SET search_path = public` to prevent search-path injection:
+- `post_transaction` (0003, 0008, 0010, 0012): `SET search_path = public`
+- `audit_row_change` (0004): `SET search_path = public`
+
+Without `SET search_path`, if an attacker or misconfigured session can manipulate the session `search_path` before the deferred constraint trigger fires at COMMIT, the query `FROM postings WHERE transaction_id = NEW.transaction_id` could resolve to a shadow `postings` table in a different schema, returning a fraudulent zero sum and allowing unbalanced postings to pass the double-entry check. This undermines CLAUDE.md Invariant 2. The trigger is deferred to COMMIT (`DEFERRABLE INITIALLY DEFERRED`), meaning the session `search_path` in effect at COMMIT time is used — a window for manipulation.
 
 **Fix:**
-
-```typescript
-try {
-  await db.app.query(
-    `INSERT INTO postings (id, transaction_id, account_id, amount_cents, direction)
-     VALUES (gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), 1, 'debit')`,
-  );
-  // INSERT succeeded — 0007 is missing. Fail loudly.
-  throw new Error(
-    "beforeAll guard: aprumo_app could INSERT directly into postings — " +
-      "migration 0007_revoke_insert_append_only has not been applied.",
-  );
-} catch (err: unknown) {
-  const code =
-    typeof err === "object" && err !== null && "code" in err
-      ? (err as { code: string }).code
-      : undefined;
-  if (code === "42501") {
-    // Expected — REVOKE is in place, guard passes.
-    return;
-  }
-  // Re-throw everything else: our sentinel Error, connection failures, etc.
-  throw err;
-}
+```sql
+CREATE OR REPLACE FUNCTION check_double_entry_balance()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  v_signed_sum bigint;
+BEGIN
+  -- ... (rest unchanged)
 ```
+
+This should be applied as a new migration (e.g., 0014 or appended to an existing corrective migration) since 0005 is immutable per the drift gate.
+
+---
 
 ## Warnings
 
-### WR-01: Savepoint handler in applyMigrationsToSchema absorbs 23505/42710 for ALL DO blocks
+### WR-01: Duplicate `globalSetup` registration causes two testcontainers instances in `pnpm test` and coverage-gate
 
-**File:** `packages/core/tests/helpers/applyMigrationsToSchema.ts:386-393`
-**Issue:** The savepoint error handler absorbs duplicate-object errors when `firstToken.startsWith("DO ")`. Currently only `0001_roles.sql` uses a `DO` block in non-seed migrations, so the heuristic is accidentally correct. However, any future migration that uses a `DO $$` block for data migrations, conditional index creation, or other DDL could silently have a `23505` or `42710` error swallowed. The outer transaction would continue, the tracking INSERT would record the migration as applied, and the schema would be left in a partially-applied state with no diagnostic error.
+**File:** `vitest.config.ts:17` and `packages/core/vitest.config.ts:9`
 
-**Fix:** Tighten the check to match only the role-creation DO blocks by inspecting the actual SQL content, not just the token prefix:
-
-```typescript
-const isRoleCreationBlock =
-  firstToken.startsWith("CREATE ROLE") ||
-  (firstToken.startsWith("DO ") &&
-    /CREATE\s+ROLE\s+aprumo_/i.test(trimmed.replace(/--[^\n]*/g, "")));
-if ((pgCode === "23505" || pgCode === "42710") && isRoleCreationBlock) {
-  return;
-}
+**Issue:** The root `vitest.config.ts` declares:
+```ts
+globalSetup: ["packages/core/tests/globalSetup.ts"],
+```
+And also includes `"packages/*/vitest.config.ts"` in `projects`, which resolves `packages/core/vitest.config.ts`, which itself declares:
+```ts
+globalSetup: ["./tests/globalSetup.ts"],
 ```
 
-Alternatively, update `0001_roles.sql` to use `EXCEPTION WHEN duplicate_object` (as `globalSetup.ts` already does for the pre-creation step) and remove `DO` from the savepoint absorption entirely.
+In Vitest workspace mode, both the root-level and project-level `globalSetup` are executed. Since both point to the same file (`packages/core/tests/globalSetup.ts`), the file runs twice: once in the root context and once in the core project context. Each execution calls `builder.start()`, starting a second PostgreSQL container in non-reuse mode (CI). This doubles container startup time and wastes CI resources. Worse, `project.provide("pgUri", pgUri)` is called twice with different URIs; which `pgUri` tests receive depends on Vitest's internal execution order, making this a potential source of non-deterministic integration test failures.
 
----
+The integration-test CI job (`pnpm --filter @aprumo/core test --run`) runs only the package project and is not affected. But `pnpm test` (test job, line 71) and `pnpm vitest run --coverage` (coverage-gate job, line 96) both run from the root and trigger the double-setup.
 
-### WR-02: post_transaction v_signed_sum accumulator can BIGINT-overflow with multiple large-but-individually-valid postings
+**Fix:** Remove the root-level `globalSetup` entry from `vitest.config.ts` and rely solely on the per-project declaration in `packages/core/vitest.config.ts`:
 
-**File:** `packages/core/migrations/0010_fix_validation_order.sql:68-70`
-**Issue:** The per-posting positivity check (`amount_cents <= 0`) prevents BIGINT_MIN as a single amount. However, `v_signed_sum := v_signed_sum + v_rec.amount_cents` can still overflow when multiple individually-valid postings sum to more than `BIGINT_MAX` (9,223,372,036,854,775,807 cents ≈ 92 quadrillion USD). For example, two debit postings of `4,611,686,018,427,387,904` cents each would produce integer overflow. PostgreSQL raises `SQLSTATE 22003` (numeric value out of range) rather than `P0001`, breaking the invariant that all `post_transaction` validation errors use `P0001` and can be handled uniformly by callers.
-
-**Fix:** Use `numeric` for the accumulator (the intermediate calculation only; `bigint` storage is unchanged) so overflow cannot occur, then validate the final sum fits in `bigint` before proceeding:
-
-```sql
-DECLARE
-  v_tx_id       uuid;
-  v_signed_sum  numeric := 0;   -- overflow-safe accumulator
-  v_rec         posting_input;
-BEGIN
-  -- ... validation loop as-is ...
-
-  IF v_signed_sum <> 0 THEN
-    RAISE EXCEPTION 'post_transaction: postings do not balance (signed sum = %)',
-      v_signed_sum USING ERRCODE = 'P0001';
-  END IF;
-  -- No range check needed when sum = 0 (zero is within bigint range).
+```ts
+// vitest.config.ts — remove:
+// globalSetup: ["packages/core/tests/globalSetup.ts"],
+export default defineConfig({
+  test: {
+    // no globalSetup here — per-package projects manage their own
+    projects: [
+      { test: { name: "root-tests", include: ["tests/**/*.test.ts"], environment: "node" } },
+      "packages/*/vitest.config.ts",
+    ],
+    coverage: { /* unchanged */ },
+  },
+});
 ```
 
 ---
 
-### WR-03: EXECUTE ON ALL FUNCTIONS grant pre-authorises future SECURITY DEFINER functions for aprumo_app
+### WR-02: `outbound_events_audit` shadow table is orphaned after migration 0011 drops its trigger
 
-**File:** `packages/core/migrations/0002_grants.sql:24-26`
-**Issue:** The migration issues `GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO aprumo_app` and sets a `DEFAULT PRIVILEGES` clause so all future functions created by `aprumo_migration` are automatically executable by `aprumo_app`. The comment states this is needed for `post_transaction`, but the grant is far broader. Any future `SECURITY DEFINER` function added via a new migration will be callable by `aprumo_app` without an explicit per-function grant review. If such a function performs privileged operations with insufficient input validation, `aprumo_app` can invoke it without any additional migration step to grant access.
+**File:** `packages/core/migrations/0011_drop_outbound_events_audit_trigger.sql:25`
 
-**Fix:** Remove the broad default-privilege clause and require each new function to explicitly grant EXECUTE in its own migration, consistent with how `0003_post_transaction.sql` already does it on line 119:
+**Issue:** Migration 0011 drops `outbound_events_audit_trigger` on `outbound_events` but retains the `outbound_events_audit` table. After 0011, the shadow table exists in the schema, is visible to `information_schema.tables` queries, and receives no writes. CLAUDE.md Invariant 6 reads: "qualquer tabela mutavel (configs, customers, endpoints) tem shadow *_audit populada por trigger." `outbound_events` is mutable (status, attempts, last_error, next_attempt_at are all updated) and was covered by this invariant at schema creation.
 
-```sql
--- 0002_grants.sql should NOT include:
---   GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO aprumo_app;
---   ALTER DEFAULT PRIVILEGES FOR ROLE aprumo_migration IN SCHEMA public
---     GRANT EXECUTE ON FUNCTIONS TO aprumo_app;
--- Each function's migration grants EXECUTE explicitly (see 0003_post_transaction.sql:119).
+The 0011 comment correctly notes the operational noise rationale, but the orphaned audit table creates two concrete issues: (1) tests in `schema-shape.integration.test.ts:184-198` verify `outbound_events_audit` exists — and it does — giving a false sense of audit coverage. (2) Future developers may query `outbound_events_audit` expecting content and get silent empty results.
+
+**Fix:** Either drop `outbound_events_audit` in a subsequent migration (0014+) and remove it from the expected audit tables in `schema-shape.integration.test.ts`; or add a prominent comment to `schema.ts` and the migration marking the table as intentionally empty:
+
+```ts
+// schema.ts: outbound_events_audit — shadow table retained but INTENTIONALLY UNPOPULATED.
+// Audit trigger was dropped in migration 0011 (high-frequency writes; no TTL strategy).
+// See 0011_drop_outbound_events_audit_trigger.sql for rationale.
+export const outboundEventsAudit = pgTable("outbound_events_audit", auditColumns);
 ```
 
-Revoke the existing over-broad grant in a new migration:
+---
 
-```sql
-REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM aprumo_app;
--- Then verify post_transaction still has its explicit GRANT (it does — 0003_post_transaction.sql:119).
+### WR-03: `revoke.integration.test.ts` does not test INSERT revoke on `postings`/`raw_events` — gap in revoke coverage is misleading
+
+**File:** `packages/core/tests/schema/revoke.integration.test.ts:22-57`
+
+**Issue:** `revoke.integration.test.ts` tests `UPDATE` and `DELETE` revoke on `postings` and `raw_events` (from migration 0002), but contains no test for the INSERT revoke introduced by migration 0007. The INSERT revoke tests exist in `post-transaction.integration.test.ts:288-311`, but they are placed in the wrong test file: revoke enforcement belongs in `revoke.integration.test.ts` for discoverability.
+
+Compounding this, as documented in CR-01, the test at `post-transaction.integration.test.ts:302-311` asserts `42501` on INSERT into `raw_events` — but per CLAUDE.md that INSERT should be permitted, meaning the test validates the wrong (incorrect) behaviour and will pass until Phase 4 when the missing write path causes a production failure. A reader of `revoke.integration.test.ts` who checks "is INSERT on `raw_events` covered?" finds nothing, masking the violation.
+
+**Fix:** After applying the CR-01 corrective migration, add explicit INSERT tests to `revoke.integration.test.ts`:
+
+```ts
+describe("INSERT revoke enforcement", () => {
+  it("aprumo_app INSERT into postings -> SQLSTATE 42501", async () => {
+    await expect(
+      db.app.query(`INSERT INTO postings (id, transaction_id, account_id, amount_cents, direction)
+        VALUES (gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), 1, 'debit')`)
+    ).rejects.toMatchObject({ code: "42501" });
+  });
+
+  it("aprumo_app INSERT into raw_events -> succeeds (SELECT/INSERT em todas per CLAUDE.md)", async () => {
+    // aprumo_app retains INSERT on raw_events per CLAUDE.md role spec
+    await expect(
+      db.app.query(`INSERT INTO raw_events (provider, provider_event_id, payload_jsonb)
+        VALUES ('test', $1, '{}')`, [randomUUID()])
+    ).resolves.toBeDefined();
+  });
+});
 ```
+
+---
 
 ## Info
 
-### IN-01: migration-integrity CI job is not in integration-test needs, causing redundant execution
+### IN-01: `readWithRetry` doc-comment says "3 retries" but implementation does 10 attempts
 
-**File:** `.github/workflows/ci.yml:139-154`
-**Issue:** The `integration-test` job declares `needs: [lint, typecheck, build]` and also re-runs `check-migration-drift.mjs` inline as a step. The standalone `migration-integrity` job runs in parallel. This means the drift check runs twice per CI run with no guarantee they execute in the correct order. Adding `migration-integrity` to `integration-test`'s `needs:` array would enforce ordering and remove the inline duplicate.
+**File:** `packages/core/tests/helpers/applyMigrationsToSchema.ts:231` and `238`
+
+**Issue:** The JSDoc comment at line 231 reads:
+```
+* Read a file with up to 3 retries on ENOENT.
+```
+But the loop on line 238 runs:
+```ts
+for (let attempt = 0; attempt < 10; attempt++) {
+```
+
+The implementation does 10 attempts (not 3). The comment was not updated when the retry count was increased. No runtime impact, but the comment misleads future maintainers reasoning about worst-case retry delays (actual worst-case is ~3 seconds of retries, not ~140ms).
 
 **Fix:**
-
-```yaml
-integration-test:
-  needs: [lint, typecheck, build, migration-integrity]
-  # Remove the inline "Check migration drift" step — it's now guaranteed by needs.
+```ts
+/**
+ * Read a file with up to 10 retries on ENOENT.
+ * macOS APFS can transiently return ENOENT under heavy concurrent I/O ...
+ */
 ```
 
 ---
 
-### IN-02: readWithRetry comment says "3 retries" but implementation uses 10 attempts
+### IN-02: `check-migration-drift.mjs` does not detect hashes in `migration-hashes.json` that have no corresponding journal entry
 
-**File:** `packages/core/tests/helpers/applyMigrationsToSchema.ts:232`
-**Issue:** The function header comment on line 232 says "Read a file with up to 3 retries on ENOENT" but the loop condition is `attempt < 10` (10 total attempts, 9 retries). The discrepancy creates a false expectation when debugging slow or flaky macOS APFS test runs.
+**File:** `scripts/check-migration-drift.mjs:100-114`
 
-**Fix:** Align the comment with the implementation:
+**Issue:** The drift check correctly detects migration files on disk absent from `_journal.json`, and journal entries whose files are missing or hash-mismatched. But it does NOT detect hash entries in `migration-hashes.json` that have no corresponding `_journal.json` entry. If a developer removes a migration from the journal (accidentally or to hide a change) while leaving its hash in the JSON file, the drift check passes silently — the reverse-disk check (lines 100-114) only compares `.sql` files against the journal, not hash-file entries against the journal.
 
-```typescript
-/**
- * Read a file with up to 9 retries (10 total attempts) on ENOENT.
- * ...
- */
+**Fix:** Add a third check after the existing reverse-file check:
+```js
+// 5b. Detect hash entries with no journal counterpart (stale/orphaned hashes)
+for (const tag of Object.keys(storedHashes)) {
+  if (!journalTags.has(tag)) {
+    process.stderr.write(
+      `DRIFT: ${tag} has a stored hash in migration-hashes.json but no entry in _journal.json\n`
+    );
+    driftedFiles.push(tag);
+    driftDetected = true;
+  }
+}
+```
+
+---
+
+### IN-03: Comment in `0013_revoke_execute_all_functions.sql` incorrectly implies explicit function grants survive `REVOKE ON ALL FUNCTIONS`
+
+**File:** `packages/core/migrations/0013_revoke_execute_all_functions.sql:22-23`
+
+**Issue:** The migration comment states:
+> "The explicit function-level grants are not affected by REVOKE ON ALL FUNCTIONS."
+
+This is incorrect. In PostgreSQL, `REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM aprumo_app` revokes EXECUTE from ALL functions, including those that received an earlier explicit `GRANT EXECUTE`. The subsequent `GRANT EXECUTE ON FUNCTION post_transaction(...)` at line 42 is **required** (not optional belt-and-suspenders) to restore `aprumo_app`'s access. If a future developer removes the re-grant believing the comment's claim that explicit grants survive, `aprumo_app` will silently lose access to `post_transaction`.
+
+No runtime bug exists since the re-grant is present. The risk is that the misleading comment becomes a maintenance hazard.
+
+**Fix:** Correct the comment:
+```sql
+-- IMPORTANT: REVOKE EXECUTE ON ALL FUNCTIONS revokes ALL existing function grants,
+-- including those issued by explicit prior GRANT EXECUTE statements.
+-- The GRANT EXECUTE below is REQUIRED — not belt-and-suspenders — to restore
+-- aprumo_app's access to post_transaction after the broad revoke above.
+-- If this re-grant is removed, aprumo_app loses all DB write capability.
+GRANT EXECUTE ON FUNCTION post_transaction(text, text, text, jsonb, posting_input[])
+  TO aprumo_app;
 ```
 
 ---
 
 _Reviewed: 2026-06-02T00:00:00Z_
 _Reviewer: Claude (gsd-code-reviewer)_
-_Depth: standard_
+_Depth: deep_
