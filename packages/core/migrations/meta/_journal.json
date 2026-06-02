@@ -78,6 +78,13 @@
       "when": 1780416135596,
       "tag": "0010_fix_validation_order",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1780416705697,
+      "tag": "0011_drop_outbound_events_audit_trigger",
+      "breakpoints": true
     }
   ]
 }
