@@ -10,6 +10,12 @@ on:
 # Original D-23a (npm OIDC) and D-23b (npm Trusted Publisher) superseded by this decision.
 # Migration to npm registry may be revisited in a future milestone.
 
+# IMPORTANT: This workflow runs concurrently with ci.yml on push to main.
+# To prevent publishing from untested code, branch protection for `main` MUST require
+# all CI status checks (lint, typecheck, build, test, coverage-gate, integration-test)
+# to pass before any merge. Configure in: Settings → Branches → Branch protection rules.
+# Without branch protection, a push to main can trigger this release workflow before
+# ci.yml completes, potentially publishing from code that has not passed CI.
 permissions: {}  # default: no permissions for any job unless explicitly granted below
 
 jobs:
