@@ -12,5 +12,13 @@ export default defineConfig({
     // Container startup can take 30-60s on first pull; allow generous timeout.
     testTimeout: 60_000,
     hookTimeout: 60_000,
+    // IN-02: Explicitly configure v8 coverage provider per CLAUDE.md ("coverage v8").
+    // Without this, `pnpm vitest run --coverage` falls back to whatever provider is
+    // installed as default, which may differ from v8 instrumentation semantics.
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json", "json-summary", "lcov"],
+      thresholds: { lines: 90 },
+    },
   },
 });
