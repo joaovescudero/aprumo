@@ -34,6 +34,19 @@ async function runSeed(databaseUrl?: string): Promise<void> {
 
   const seedContent = readFileSync(SEED_SQL_PATH, "utf8");
 
+  // WR-06: Structural validation before executing sql.unsafe().
+  // Verify the seed file begins with the expected `DO $$` pattern to guard against
+  // dependency confusion attacks where a malicious package substitutes the file with
+  // arbitrary SQL that would run as the migration role.
+  // Log the resolved path for audit purposes.
+  process.stdout.write(`Loading seed from: ${SEED_SQL_PATH}\n`);
+  if (!/^\s*DO\s+\$\$/.test(seedContent)) {
+    throw new Error(
+      `Seed file at ${SEED_SQL_PATH} does not begin with the expected DO $$ block. ` +
+        "Refusing to execute unrecognised content.",
+    );
+  }
+
   // { max: 1 } — single connection, no pool overhead for a one-shot seed script.
   const sql = postgres(url, { max: 1 });
 
