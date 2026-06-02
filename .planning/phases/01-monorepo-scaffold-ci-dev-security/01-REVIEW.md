@@ -10,7 +10,12 @@ findings:
   warning: 2
   info: 2
   total: 6
-status: issues_found
+status: resolved
+resolution:
+  resolved: [CR-01, CR-02, IN-02]
+  resolved_commits: ["1be2651 (RED tests)", "a04a390 (single-pass fix)"]
+  resolved_at: 2026-06-02T00:00:00Z
+  note: "WR-01/WR-02/IN-01 left as-is (cosmetic/diagnostic, no behavioral impact)."
 ---
 
 # Phase 01: Code Review Report (Gap-Closure — readJsonc)
@@ -18,7 +23,14 @@ status: issues_found
 **Reviewed:** 2026-06-02  
 **Depth:** standard  
 **Files Reviewed:** 1  
-**Status:** issues_found
+**Status:** resolved (CR-01, CR-02, IN-02 fixed in 1be2651 + a04a390)
+
+> **Resolution (2026-06-02):** Both BLOCKERs and the TDD gap closed via TDD.
+> RED commit `1be2651` added 6 `readJsonc` unit cases (string `/* */` preservation,
+> dangling trailing commas after inline `//` and `/* */`); GREEN commit `a04a390`
+> replaced the two-pass pipeline with a single-pass regex (string-literal alternative
+> first) plus a trailing-comma cleanup. Full suite: 176 passed / 1 skipped, typecheck 0.
+> WR-01, WR-02, IN-01 are non-behavioral and left unchanged.
 
 ## Summary
 
