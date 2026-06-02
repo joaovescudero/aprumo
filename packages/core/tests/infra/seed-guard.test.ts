@@ -9,7 +9,7 @@
  * This file must produce at least one failure (import error) before the fix.
  */
 import { describe, expect, it } from "vitest";
-import { assertSeedStructure } from "../../../src/db/seed.js";
+import { assertSeedStructure } from "../../src/db/seed.js";
 
 describe("assertSeedStructure", () => {
   // ──────────────────────────────────────────────────────────────────────────
