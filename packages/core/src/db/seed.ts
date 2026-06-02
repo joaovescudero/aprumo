@@ -54,6 +54,19 @@ export function assertSeedStructure(content: string, label?: string): void {
 }
 
 async function runSeed(databaseUrl?: string): Promise<void> {
+  // CR-01: Environment allowlist guard — mirrors reset.ts.
+  // Seed inserts accounts accumulate without a unique constraint on owner_ref, and
+  // executes sql.unsafe() as the migration role. Running against production is a
+  // data-corruption risk even though post_transaction is idempotent on idempotency_key.
+  const SAFE_ENVS = new Set(["development", "test"]);
+  const nodeEnv = process.env.NODE_ENV ?? "";
+  if (!SAFE_ENVS.has(nodeEnv)) {
+    throw new Error(
+      `db:seed refused: NODE_ENV="${nodeEnv}" is not a permitted environment. ` +
+        `Allowed values: development, test.`,
+    );
+  }
+
   const url = databaseUrl ?? process.env.DATABASE_URL;
   if (!url) {
     throw new Error(
