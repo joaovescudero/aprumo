@@ -256,7 +256,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Monorepo Scaffold + CI + Dev Security | 7/7 | Complete   | 2026-05-22 |
+| 1. Monorepo Scaffold + CI + Dev Security | 8/8 | Complete   | 2026-06-02 |
 | 2. Schema Foundation + DB Tooling | 14/14 | Complete   | 2026-05-25 |
 | 3. Core Ledger API | 7/7 | Complete   | 2026-05-30 |
 | 4. Balance Worker + Reconciliation | 0/TBD | Not started | - |
