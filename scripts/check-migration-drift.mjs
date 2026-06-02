@@ -13,7 +13,8 @@
  *      b. Compare against stored hash
  *      c. Log DRIFT: error if hash differs or file is missing
  *   4. Reverse check: detect .sql files on disk absent from _journal.json
- *   5. Exit 1 if any drift detected; exit 0 otherwise
+ *   5. Reverse hash check: detect hashes in migration-hashes.json absent from _journal.json
+ *   6. Exit 1 if any drift detected; exit 0 otherwise
  *
  * Usage:
  *   node scripts/check-migration-drift.mjs          # check for drift (CI gate)
@@ -113,7 +114,21 @@ function main() {
     }
   }
 
-  // 5. Report result
+  // 5. Reverse hash check: detect entries in migration-hashes.json with no corresponding
+  // journal entry. A developer could remove a migration from _journal.json while leaving
+  // its hash in migration-hashes.json — the journal-forward checks above would not catch
+  // this (they only iterate journal entries). This check catches the reverse case.
+  for (const tag of Object.keys(storedHashes)) {
+    if (!journalTags.has(tag)) {
+      process.stderr.write(
+        `DRIFT: ${tag} has a stored hash in migration-hashes.json but no entry in _journal.json\n`,
+      );
+      driftedFiles.push(tag);
+      driftDetected = true;
+    }
+  }
+
+  // 7. Report result
   if (driftDetected) {
     process.stderr.write(
       `\nMigration integrity check FAILED. Drifted files: ${driftedFiles.join(", ")}\n`,
