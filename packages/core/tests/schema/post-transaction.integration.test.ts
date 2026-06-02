@@ -22,10 +22,14 @@ beforeAll(async () => {
   db = await createTestDb(import.meta.url);
 
   // IN-03 guard: verify that migration 0007_revoke_insert_append_only was applied.
-  // The immutability tests below depend on aprumo_app having INSERT revoked on
-  // postings/raw_events (SQLSTATE 42501). Without 0007, those INSERT calls would
-  // succeed (not fail), causing confusing "Expected promise to reject, but it resolved"
-  // failures. This guard surfaces the missing migration as the root cause.
+  // The immutability test below depends on aprumo_app having INSERT revoked on
+  // postings (SQLSTATE 42501). Without 0007, that INSERT would succeed (not fail),
+  // causing confusing "Expected promise to reject, but it resolved" failures.
+  // This guard surfaces the missing migration as the root cause.
+  //
+  // Note: 0014_regrant_insert_raw_events.sql restores INSERT on raw_events to
+  // aprumo_app per CLAUDE.md role spec ("SELECT/INSERT em todas"). This guard
+  // tests only postings (sole write path = post_transaction SECURITY DEFINER).
   try {
     await db.app.query(
       `INSERT INTO postings (id, transaction_id, account_id, amount_cents, direction)
@@ -299,16 +303,20 @@ describe("post_transaction — FND-09 + CLAUDE.md Invariants #1, #2, #3", () => 
       ).rejects.toMatchObject({ code: "42501" });
     });
 
-    it("aprumo_app direct INSERT into raw_events → permission denied (42501)", async () => {
-      // aprumo_app has INSERT revoked on raw_events (migration 0007_revoke_insert_append_only).
-      // Only application code running as aprumo_migration (or via a SECURITY DEFINER function)
-      // may insert into raw_events. Direct INSERT as aprumo_app must raise 42501.
+    it("aprumo_app direct INSERT into raw_events → succeeds (SELECT/INSERT on all tables per CLAUDE.md)", async () => {
+      // 0014_regrant_insert_raw_events.sql restores INSERT on raw_events to aprumo_app.
+      // CLAUDE.md role spec: "aprumo_app: SELECT/INSERT em todas; sem UPDATE/DELETE em postings/raw_events"
+      // INSERT is permitted; only UPDATE/DELETE are prohibited.
+      // Per CLAUDE.md Invariant #4: aprumo_app must INSERT raw_events in the same Postgres
+      // transaction as pg-boss job enqueueing (exact-once webhook pattern).
+      const eventId = `test-evt-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       await expect(
         db.app.query(
-          `INSERT INTO raw_events (id, provider, provider_event_id, received_at, payload_jsonb)
-           VALUES (gen_random_uuid(), 'test', 'evt-001', now(), '{}'::jsonb)`,
+          `INSERT INTO raw_events (provider, provider_event_id, payload_jsonb)
+           VALUES ('test', $1, '{}'::jsonb)`,
+          [eventId],
         ),
-      ).rejects.toMatchObject({ code: "42501" });
+      ).resolves.toBeDefined();
     });
   });
 });

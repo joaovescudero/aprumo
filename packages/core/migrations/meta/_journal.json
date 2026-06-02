@@ -99,6 +99,13 @@
       "when": 1780416825697,
       "tag": "0013_revoke_execute_all_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1780500000000,
+      "tag": "0014_regrant_insert_raw_events",
+      "breakpoints": true
     }
   ]
 }
