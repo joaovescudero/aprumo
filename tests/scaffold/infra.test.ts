@@ -17,6 +17,21 @@ function readJson(filePath: string): unknown {
   return JSON.parse(raw);
 }
 
+function readJsonc(filePath: string): unknown {
+  const raw = fs.readFileSync(filePath, "utf8");
+  // Strip /* ... */ block comments (non-greedy, handles multi-line)
+  const noBlockComments = raw.replace(/\/\*[\s\S]*?\*\//g, "");
+  // Strip // line comments, but only outside JSON string values.
+  // The replacer returns group 1 unchanged when a string literal matched,
+  // and returns "" to erase the // comment otherwise.
+  const stripped = noBlockComments.replace(
+    /("(?:[^"\\]|\\.)*")|\/\/[^\n]*/g,
+    (match: string, stringLiteral: string | undefined): string =>
+      stringLiteral !== undefined ? stringLiteral : "",
+  );
+  return JSON.parse(stripped);
+}
+
 describe("INF-01..05: Monorepo scaffold", () => {
   describe("INF-01: pnpm workspace", () => {
     it("pnpm-workspace.yaml exists at repo root", () => {
@@ -53,21 +68,21 @@ describe("INF-01..05: Monorepo scaffold", () => {
 
     it('tsconfig.base.json contains "strict": true', () => {
       const configPath = path.join(REPO_ROOT, "tsconfig.base.json");
-      const config = readJson(configPath) as Record<string, unknown>;
+      const config = readJsonc(configPath) as Record<string, unknown>;
       const compilerOptions = config.compilerOptions as Record<string, unknown> | undefined;
       expect(compilerOptions?.strict).toBe(true);
     });
 
     it('tsconfig.base.json contains "noUncheckedIndexedAccess": true', () => {
       const configPath = path.join(REPO_ROOT, "tsconfig.base.json");
-      const config = readJson(configPath) as Record<string, unknown>;
+      const config = readJsonc(configPath) as Record<string, unknown>;
       const compilerOptions = config.compilerOptions as Record<string, unknown> | undefined;
       expect(compilerOptions?.noUncheckedIndexedAccess).toBe(true);
     });
 
     it('tsconfig.base.json contains "module": "NodeNext"', () => {
       const configPath = path.join(REPO_ROOT, "tsconfig.base.json");
-      const config = readJson(configPath) as Record<string, unknown>;
+      const config = readJsonc(configPath) as Record<string, unknown>;
       const compilerOptions = config.compilerOptions as Record<string, unknown> | undefined;
       expect(compilerOptions?.module).toBe("NodeNext");
     });
