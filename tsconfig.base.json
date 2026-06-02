@@ -14,6 +14,10 @@
     "sourceMap": true,
     "skipLibCheck": true,
     "esModuleInterop": false,
+    // ignoreDeprecations: "6.0" — suppresses the TS6 deprecation error for "target": "ES2024"
+    // and/or "lib": ["ES2024"] which are flagged as deprecated in TypeScript 6.0.
+    // Remove once all upstream type definitions and tooling (e.g., vitest, drizzle) are
+    // compatible with TypeScript 6.0 target/lib conventions.
     "ignoreDeprecations": "6.0"
   }
 }
