@@ -37,16 +37,20 @@ beforeAll(async () => {
         "The immutability tests will fail or produce incorrect results.",
     );
   } catch (err: unknown) {
-    if (
-      typeof err === "object" &&
-      err !== null &&
-      "code" in err &&
-      (err as { code: string }).code !== "42501"
-    ) {
-      // Re-throw unexpected errors (e.g. connection failure or our sentinel Error above).
+    // CR-02 fix: extract code first, then re-throw anything that is NOT the expected
+    // 42501 (insufficient_privilege). The previous condition used:
+    //   "code" in err && code !== "42501"
+    // which short-circuits to false when our sentinel Error (no .code property) is the
+    // caught value — silently swallowing the guard failure instead of surfacing it.
+    const code =
+      typeof err === "object" && err !== null && "code" in err
+        ? (err as { code: string }).code
+        : undefined;
+    if (code !== "42501") {
+      // Re-throw: our sentinel Error (code=undefined), connection failures, etc.
       throw err;
     }
-    // code === "42501" is expected — 0007 is applied and the guard passes.
+    // code === "42501" — REVOKE is in place, guard passes; fall through to account seeding.
   }
 
   // Seed 2 accounts via migration role (aprumo_app cannot INSERT into accounts directly
