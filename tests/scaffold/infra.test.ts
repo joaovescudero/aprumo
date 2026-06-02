@@ -20,17 +20,19 @@ function readJson(filePath: string): unknown {
 
 function readJsonc(filePath: string): unknown {
   const raw = fs.readFileSync(filePath, "utf8");
-  // Strip /* ... */ block comments (non-greedy, handles multi-line)
-  const noBlockComments = raw.replace(/\/\*[\s\S]*?\*\//g, "");
-  // Strip // line comments, but only outside JSON string values.
-  // The replacer returns group 1 unchanged when a string literal matched,
-  // and returns "" to erase the // comment otherwise.
-  const stripped = noBlockComments.replace(
-    /("(?:[^"\\]|\\.)*")|\/\/[^\n]*/g,
-    (match: string, stringLiteral: string | undefined): string =>
+  // Single pass: the string-literal alternative is matched FIRST so comment
+  // syntax inside string values is preserved. Only genuine // and /* */
+  // comments (outside strings) match the later alternatives and are erased.
+  const stripped = raw.replace(
+    /("(?:[^"\\]|\\.)*")|\/\*[\s\S]*?\*\/|\/\/[^\n]*/g,
+    (_full: string, stringLiteral: string | undefined): string =>
       stringLiteral !== undefined ? stringLiteral : "",
   );
-  return JSON.parse(stripped);
+  // Stripping an inline comment that followed a trailing comma can leave a
+  // dangling comma before the closing brace/bracket; remove it so JSON.parse
+  // does not choke on otherwise-valid JSONC.
+  const noTrailingCommas = stripped.replace(/,(\s*[}\]])/g, "$1");
+  return JSON.parse(noTrailingCommas);
 }
 
 describe("INF-01..05: Monorepo scaffold", () => {
