@@ -1,8 +1,8 @@
 ---
 phase: 01-monorepo-scaffold-ci-dev-security
-reviewed: 2026-06-01T00:00:00Z
+reviewed: 2026-06-02T00:00:00Z
 depth: deep
-files_reviewed: 48
+files_reviewed: 45
 files_reviewed_list:
   - .changeset/config.json
   - .github/ISSUE_TEMPLATE/bug.yml
@@ -51,49 +51,43 @@ files_reviewed_list:
   - tsconfig.base.json
   - tsconfig.json
   - vitest.config.ts
-  - packages/connector-base/tsconfig.json
-  - packages/connector-starkbank/tsconfig.json
-  - packages/webhooks/tsconfig.json
 findings:
   critical: 4
-  warning: 5
-  info: 3
-  total: 12
+  warning: 7
+  info: 5
+  total: 16
 status: issues_found
 ---
 
 # Phase 01: Code Review Report
 
-**Reviewed:** 2026-06-01T00:00:00Z
+**Reviewed:** 2026-06-02T00:00:00Z
 **Depth:** deep
-**Files Reviewed:** 48
+**Files Reviewed:** 45
 **Status:** issues_found
 
 ## Summary
 
-This is the monorepo scaffold, CI pipeline, and security baseline for the Aprumo financial ledger. The overall structure is sound and well-documented. However, several findings require attention before this code should be considered production-ready.
+This review covers the monorepo scaffold, CI/CD pipeline, secret scanning configuration, coverage gating, and developer tooling for Phase 1. The overall design is well-structured and clearly documented. Four blockers and seven warnings require attention before this code should be considered production-safe for a financial OSS project.
 
-The most significant issues are: (1) all GitHub Actions are pinned to mutable tag references rather than immutable commit SHAs, creating a supply-chain attack surface; (2) the gitleaks secret-scan rule allowlists blanket-exempt all `*.test.ts` files, which would allow a real secret committed inside any test file to bypass both pre-commit hooks and CI history scanning; (3) the release workflow carries `contents:write` and `packages:write` permissions at workflow level rather than job level, violating least-privilege; and (4) the `test` matrix job (Job 4 in ci.yml) omits `TESTCONTAINERS_RYUK_DISABLED=true`, which will cause intermittent Ryuk-daemon failures on GitHub-hosted runners when the testcontainers PostgreSQL container is started.
+The highest-severity issues are: (1) GitHub Actions pinned to mutable tags rather than commit SHAs, creating a supply-chain attack surface against a workflow that carries `contents:write` and `packages:write`; (2) the gitleaks secret-scan rules blanket-exempt all `.test.ts` files, allowing a real private key or API credential committed inside any test file to bypass both pre-commit hooks and CI history scanning; (3) the release workflow declares elevated permissions at the workflow level (not job level), violating least-privilege; and (4) the `test` matrix job (CI Job 4) omits `TESTCONTAINERS_RYUK_DISABLED: "true"`, causing latent intermittent failures on GitHub-hosted runners when the PG testcontainer is started.
+
+Additional warnings cover: gitleaks binary download without checksum verification; the release workflow having no dependency on CI passing; unnecessary `GITHUB_TOKEN` exposure to the gitleaks process; a parallel pre-commit hook race between biome's `stage_fixed` and gitleaks staging-read; and an unexplained `ignoreDeprecations: "6.0"` suppressor in `tsconfig.base.json`.
 
 ---
 
 ## Critical Issues
 
-### CR-01: All GitHub Actions pinned to mutable tags, not commit SHAs
+### CR-01: All GitHub Actions Pinned to Mutable Tags, Not Commit SHAs — Supply Chain Risk
 
 **File:** `.github/workflows/ci.yml:19,32,41,50,64,86,97,103,117,125,140,160` and `.github/workflows/release.yml:24,29,33,43` and `.github/actions/setup/action.yml:18,24`
 
-**Issue:** Every third-party action reference uses a floating tag (`@v4`, `@v6`, `@v1`, `@v2`). Tag references are mutable: a compromised action maintainer or a tag-force-push can silently replace the action code that runs in CI/CD, including the release workflow that has `contents:write` and `packages:write`. This is the standard supply-chain attack vector documented in SLSA threat model L2+. Affected actions:
-- `actions/checkout@v4`
-- `actions/setup-node@v4`
-- `pnpm/action-setup@v6`
-- `actions/upload-artifact@v4`
-- `changesets/action@v1`
-- `davelosert/vitest-coverage-report-action@v2`
+**Issue:** Every third-party GitHub Action is pinned to a floating tag (`@v4`, `@v6`, `@v1`, `@v2`) rather than an immutable commit SHA. Tags are mutable: a maintainer can push a new commit to the same tag, and the next CI run silently executes the new code. The release workflow grants `contents:write`, `packages:write`, and `id-token:write` — a compromised `changesets/action@v1` or `actions/setup-node@v4` could exfiltrate `GITHUB_TOKEN` or publish a malicious package version to GitHub Packages under the `@aprumo` scope. The `davelosert/vitest-coverage-report-action@v2` has `pull-requests:write` access and is a less well-known action with a smaller security audit surface.
 
-The risk is highest for `changesets/action@v1` (runs in the release workflow with write permissions) and `davelosert/vitest-coverage-report-action@v2` (a third-party action with PR write access that could exfiltrate tokens or post malicious PR comments).
+Affected actions: `actions/checkout@v4`, `actions/setup-node@v4`, `pnpm/action-setup@v6`, `actions/upload-artifact@v4`, `changesets/action@v1`, `davelosert/vitest-coverage-report-action@v2`.
 
-**Fix:** Pin every action to its full commit SHA and use the tag as a comment for human readability:
+**Fix:** Pin every `uses:` to a full commit SHA with the version as a comment:
+
 ```yaml
 # Before
 - uses: actions/checkout@v4
@@ -102,46 +96,40 @@ The risk is highest for `changesets/action@v1` (runs in the release workflow wit
 - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 ```
 
-Commit SHAs for the current pinned versions (as of 2026-06):
-- `actions/checkout@v4` → `11bd71901bbe5b1630ceea73d27597364c9af683`
-- `actions/setup-node@v4` → `1d0ff469b15cbbbf7bc9571e1f4a3e55dad07820`
-- `pnpm/action-setup@v6` → `fe02af82b40b6f8c3a3bac07657f3b82b93fb048`
-- `actions/upload-artifact@v4` → `ea165f8d65b6e75b540449e92b4886f43607fa02`
-- `changesets/action@v1` → `e648d97bc8e9d6b0f88a2a9c2c2e42e7e1c81a5a`
-- `davelosert/vitest-coverage-report-action@v2` → verify at release page
-
-Use a tool like `pin-github-action` or Renovate's `pinDigests: true` to keep these current.
+Use `pinact`, Renovate's `pinDigests: true`, or `step-security/harden-runner` to automate SHA pinning and future updates.
 
 ---
 
-### CR-02: Gitleaks allowlist blanket-exempts all `.test.ts` files for both custom secret rules
+### CR-02: Gitleaks Rules Blanket-Exempt All `.test.ts` Files — Real Secrets in Test Files Bypass Scanning
 
-**File:** `.gitleaks.toml:13-15,23-25`
+**File:** `.gitleaks.toml:13-15` and `.gitleaks.toml:22-24`
 
-**Issue:** Both the `starkbank-private-key` rule and the `generic-env-secret` rule include `\.test\.ts$` in their per-rule allowlists. This means gitleaks will **never** flag a real secret committed inside any `*.test.ts` file — not in pre-commit hooks (`lefthook.yml` line 5: `gitleaks protect --staged`) and not in the full history scan (CI job `gitleaks-history`). A developer who accidentally hard-codes a real Starkbank ECDSA private key or an `API_KEY=` value inside a test helper or fixture setup function in a `.test.ts` file will receive no warning.
+**Issue:** Both custom rules (`starkbank-private-key` and `generic-env-secret`) include `\.test\.ts$` in their per-rule allowlists. This means any file ending in `.test.ts` — including files co-located alongside production code — is completely exempt from these two rules in pre-commit scanning (`lefthook.yml` line 5) and in the full git-history scan (`gitleaks-history` job). A developer who accidentally hard-codes a real Starkbank ECDSA private key or a real `SECRET=` assignment in a test helper, test setup file, or integration test will receive no warning from gitleaks.
 
-The stated rationale (allowing the `EC_PEM_HEADER` constant in `tests/ci/secret-scan.test.ts`) is correct in intent but the path pattern is too broad. The file that needs exemption is exactly one file: `tests/ci/secret-scan.test.ts`, not all test files.
+The rationale for this allowlist is to permit the dummy `EC_PEM_HEADER` constant used as a test fixture in `tests/ci/secret-scan.test.ts`. That file is one specific file — the allowlist exempts every test file in the repository.
+
+**Fix:** Replace the broad pattern with an explicit path for the one known file that needs exemption:
 
 ```toml
-# Current (too broad):
+# Before (too broad):
   [[rules.allowlists]]
   paths = ['''__fixtures__/''', '''\.example$''', '''\.test\.ts$''']
 
-# Fix: use stopwords or a narrower path pattern that only covers the known fixture:
+# After (narrow):
   [[rules.allowlists]]
-  description = "Allow PEM header literal only in the secret-scan fixture test"
-  paths = ['''tests/ci/secret-scan\.test\.ts$''']
+  description = "Allow dummy PEM header only in the secret-scan fixture test"
+  paths = ['''__fixtures__/''', '''\.example$''', '''tests/ci/secret-scan\.test\.ts$''']
 ```
 
-Alternatively, store the dummy PEM string as an allowlisted commit ID or use a `stopwords` directive rather than a blanket file-type exemption.
+Apply the same fix to both the `starkbank-private-key` and `generic-env-secret` rules.
 
 ---
 
-### CR-03: Release workflow permissions declared at workflow level, not job level
+### CR-03: Release Workflow Declares Elevated Permissions at Workflow Level, Not Job Level
 
 **File:** `.github/workflows/release.yml:13-17`
 
-**Issue:** The `permissions` block in `release.yml` is at the workflow (top) level:
+**Issue:** The `permissions` block in `release.yml` is declared at the workflow (top) level:
 
 ```yaml
 permissions:
@@ -151,12 +139,12 @@ permissions:
   packages: write
 ```
 
-Although there is currently only one job (`release`) in this workflow, declaring permissions at workflow level means that if a second job is ever added (e.g., a post-release notification step, a smoke test, or a deploy job) it automatically inherits `contents:write` and `packages:write` by default. This violates least-privilege and is a footgun for future contributors. GitHub Actions best practice is to declare permissions at the job level and set the workflow-level default to `read-all` or `{}`.
+Although there is currently only one job (`release`), declaring permissions at workflow level means any future job added to this workflow (e.g., a smoke test, a deployment notification, or a post-release check) automatically inherits `contents:write` and `packages:write`. This is a footgun that violates least-privilege and is a standard GitHub Actions hardening requirement.
 
-**Fix:**
+**Fix:** Set permissions to nothing at the workflow level and grant them explicitly per job:
+
 ```yaml
-# At workflow level (line 13), replace with:
-permissions: {}  # All permissions explicitly granted per-job
+permissions: {}  # default: no permissions for any job unless explicitly granted
 
 jobs:
   release:
@@ -173,130 +161,89 @@ jobs:
 
 ---
 
-### CR-04: Test matrix job (Job 4) missing `TESTCONTAINERS_RYUK_DISABLED=true`
+### CR-04: `test` Matrix Job (CI Job 4) Missing `TESTCONTAINERS_RYUK_DISABLED: "true"` — Latent Flakiness on GitHub Runners
 
 **File:** `.github/workflows/ci.yml:54-71`
 
-**Issue:** The `test` matrix job (`pnpm test`) starts a PostgreSQL testcontainer via the root `vitest.config.ts` `globalSetup` (which delegates to `packages/core/tests/globalSetup.ts`). Testcontainers uses a Ryuk cleanup daemon by default. On GitHub-hosted runners, Ryuk intermittently fails to start, causing test runs to error out with messages like `"RYUK container failed to start"`. This is documented as a known issue for GH Actions environments and is the exact reason the `coverage-gate` job (line 93-94) and `integration-test` job (line 147-150) both set `TESTCONTAINERS_RYUK_DISABLED: "true"`.
+**Issue:** The `test` job runs `pnpm test`, which triggers the root `vitest.config.ts` `globalSetup` that starts a PostgreSQL testcontainer. Testcontainers uses a Ryuk cleanup daemon by default. On GitHub-hosted runners, Ryuk intermittently fails to start, causing test runs to fail non-deterministically with `"RYUK container failed to start"`. This is why both the `coverage-gate` job (line 93-94) and the `integration-test` job (line 147-150) explicitly set `TESTCONTAINERS_RYUK_DISABLED: "true"`.
 
-The `test` job omits this environment variable entirely, creating a latent flakiness source that will manifest non-deterministically on GH-hosted runners:
+The `test` matrix job omits this variable entirely and has no `env:` block at all, creating a two-class CI environment: the jobs that have the fix and the one that does not.
+
+**Fix:**
 
 ```yaml
-# Job 4 currently:
-- name: Install gitleaks
-  run: ...
-- run: pnpm test        # no env block at all
-
-# Fix:
-- run: pnpm test
-  env:
-    DATABASE_URL: ""
-    TESTCONTAINERS_RYUK_DISABLED: "true"
+      - run: pnpm test
+        env:
+          DATABASE_URL: ""
+          TESTCONTAINERS_RYUK_DISABLED: "true"
 ```
 
 ---
 
 ## Warnings
 
-### WR-01: Gitleaks binary downloaded without checksum verification (three occurrences)
+### WR-01: Gitleaks Binary Downloaded Without Checksum Verification
 
 **File:** `.github/workflows/ci.yml:70,90,167`
 
-**Issue:** Gitleaks is installed via `curl | tar` pipeline with no integrity check:
+**Issue:** All three gitleaks install steps use:
 
 ```bash
 curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | sudo tar -xz -C /usr/local/bin gitleaks
 ```
 
-Although the URL is version-pinned (`v8.30.1`), there is no SHA-256 checksum verification. A compromised GitHub release asset (or a MITM on the CDN) would result in a malicious binary being installed with `sudo` and executed against the repository's codebase. Gitleaks ships a `checksums.txt` with each release. The three affected locations are the `test` job (line 70), `coverage-gate` job (line 90), and `gitleaks-history` job (line 167).
+There is no SHA-256 checksum verification. Although the URL is version-pinned (`v8.30.1`), a compromised GitHub release asset or CDN MITM would install a malicious binary that is then executed with `sudo` against the repository codebase. Gitleaks publishes a `checksums.txt` file alongside each release.
 
 **Fix:**
-```yaml
-- name: Install gitleaks
-  run: |
-    curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz -o gitleaks.tar.gz
-    echo "EXPECTED_SHA256  gitleaks.tar.gz" | sha256sum -c -
-    sudo tar -xz -C /usr/local/bin gitleaks < gitleaks.tar.gz
-    rm gitleaks.tar.gz
+
+```bash
+curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz -o /tmp/gitleaks.tar.gz
+echo "<SHA256_FROM_CHECKSUMS_TXT>  /tmp/gitleaks.tar.gz" | sha256sum --check
+sudo tar -xz -C /usr/local/bin gitleaks < /tmp/gitleaks.tar.gz
+rm /tmp/gitleaks.tar.gz
 ```
 
-Replace `EXPECTED_SHA256` with the value from `https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/checksums.txt`. Alternatively, use the official `gitleaks/gitleaks-action` (when a license is available) since that action pins its own download.
+Obtain the expected SHA256 from `https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/checksums.txt`.
 
 ---
 
-### WR-02: Release workflow has no dependency on CI passing
+### WR-02: Release Workflow Runs Concurrently With CI — Packages Can Be Published Before Tests Pass
 
-**File:** `.github/workflows/release.yml:1-54`
+**File:** `.github/workflows/release.yml:3-6`
 
-**Issue:** The release workflow triggers on `push: branches: [main]` with no `needs:` dependency on any CI job. GitHub Actions workflows are independent: a push to `main` simultaneously triggers both `ci.yml` and `release.yml`. If `release.yml` runs faster than `ci.yml`, packages can be published from code that has not passed lint, type-check, build, or tests.
+**Issue:** The release workflow triggers on `push: branches: [main]` with no dependency on any CI job. GitHub Actions workflows are entirely independent: a push to `main` triggers both `ci.yml` and `release.yml` simultaneously. If `release.yml` completes before `ci.yml`, packages can be published from code that has not yet passed lint, typecheck, build, or tests. For a financial ledger library whose consumers depend on type-correct, tested code, this is a correctness risk.
 
-This is especially dangerous for a financial ledger: a build that passes `pnpm build` but fails `pnpm typecheck` could publish a type-incorrect API surface, or a build that fails `pnpm test` could publish code with broken invariants.
-
-**Fix:** Add a required status check approach. The most reliable way in GitHub Actions is to configure branch protection on `main` to require all CI jobs to pass before merge (which indirectly ensures any push to `main` has already passed CI). Additionally, consider restructuring the release workflow to call a reusable CI workflow or add an explicit check:
-
-```yaml
-# Option A: Use environment with required reviewers to gate release deployment
-jobs:
-  release:
-    environment: production  # requires manual approval or all CI checks
-    ...
-
-# Option B: Add a preliminary step that aborts if CI is not green
-# (relies on gh CLI + required status checks being configured)
-- name: Verify CI status
-  run: |
-    gh api repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs \
-      --jq '.check_runs[] | select(.name | IN("Lint","TypeCheck","Build","Test (Node 22)","Test (Node 24)","Coverage Gate","Integration Tests (testcontainers)")) | .conclusion' \
-      | grep -v '"success"' && echo "CI checks not all passing" && exit 1 || true
-  env:
-    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-```
+**Fix:** The most reliable mitigation is branch protection: require all CI status checks to pass before any merge to `main` (so any code on `main` has already passed CI before the release workflow sees it). Add a comment in the workflow documenting that this branch protection must be configured, or add an explicit CI-status check step as a first gate in the release job.
 
 ---
 
-### WR-03: `GITHUB_TOKEN` unnecessarily exposed to gitleaks process in history scan job
+### WR-03: `GITHUB_TOKEN` Unnecessarily Passed to Gitleaks Process
 
 **File:** `.github/workflows/ci.yml:169-171`
 
-**Issue:** The `gitleaks-history` job passes `GITHUB_TOKEN` as an environment variable to the `gitleaks detect` process:
+**Issue:** The `gitleaks-history` scan step passes `GITHUB_TOKEN` as an environment variable to the gitleaks binary. Gitleaks `detect` mode (scanning a local git repository) does not use or require `GITHUB_TOKEN`. The comment acknowledges this is for a future `GITLEAKS_LICENSE` secret, but `GITHUB_TOKEN` is a completely different credential. Passing it to the gitleaks process widens the blast radius: a compromised gitleaks binary (per CR-01 and WR-01) could exfiltrate this token.
 
-```yaml
-env:
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-```
+**Fix:** Remove the `env:` block from the gitleaks-history scan step entirely. If a license is needed later, use only `GITLEAKS_LICENSE`:
 
-Gitleaks does not use or require `GITHUB_TOKEN` for local repository scanning (`detect` mode against a local git repository). The comment acknowledges this is "for org repos" with a license, but even then, the license token is `GITLEAKS_LICENSE`, not `GITHUB_TOKEN`. Passing `GITHUB_TOKEN` to the gitleaks binary unnecessarily widens the blast radius if the binary were ever compromised (per CR-01 and WR-01 above): a malicious gitleaks could exfiltrate the token.
-
-**Fix:** Remove the `env:` block entirely from the `gitleaks-history` job's scan step, or if the `GITLEAKS_LICENSE` secret will be added later, use only that:
 ```yaml
 # Remove:
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-# If adding license later:
-env:
-  GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 ```
 
 ---
 
-### WR-04: `lefthook` pre-commit runs gitleaks and biome in parallel with `stage_fixed: true`
+### WR-04: Parallel Pre-Commit: Biome `stage_fixed` and Gitleaks Scan on Staged Content Are a Race Condition
 
 **File:** `lefthook.yml:1-9`
 
-**Issue:** The `biome` command in the pre-commit hook has `stage_fixed: true`, which means lefthook will re-stage files that biome auto-fixes. This runs concurrently with `gitleaks protect --staged`. The race condition:
+**Issue:** The pre-commit hook runs `biome` and `gitleaks` in `parallel: true`. The `biome` command has `stage_fixed: true`, meaning lefthook re-stages files that biome auto-fixes. Gitleaks reads staged file content from the git index (`protect --staged`). If biome re-stages a file concurrently with gitleaks reading the staged content, gitleaks may scan a version of the file that no longer matches what will be committed. In practice the race window is narrow, but the behavior is undefined and non-deterministic.
 
-1. Both hooks start simultaneously
-2. biome finds a stylistic issue in `file.ts`, fixes it, and re-stages the file (overwriting the git index entry)
-3. gitleaks reads from the git index to scan staged content
-4. Depending on OS scheduling, gitleaks may read the pre-fix index entry (which was scanned by the developer's intent) or the post-fix entry
+**Fix:** Set `parallel: false` so biome runs (and potentially re-stages files) before gitleaks scans staged content:
 
-In practice the window is narrow but the behavior is non-deterministic. More importantly, if biome reformats a file in a way that changes a regex match boundary (e.g., adding/removing quotes around a value), gitleaks might get the original staged content from git object storage, which biome has already replaced. The semantic result: it's possible for a file to pass gitleaks scanning on the original version, then be re-staged by biome in a form that has a new pattern match, with no re-scan.
-
-**Fix:** Run gitleaks sequentially after biome, not in parallel:
 ```yaml
 pre-commit:
-  parallel: false   # run sequentially: biome first (may fix and re-stage), then gitleaks
+  parallel: false
   commands:
     biome:
       glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}"
@@ -306,88 +253,158 @@ pre-commit:
       run: gitleaks protect --staged --redact --config .gitleaks.toml
 ```
 
-Or keep parallel execution and accept the small race window (lower severity given that CI also scans history).
-
 ---
 
-### WR-05: `tsconfig.base.json` uses `ignoreDeprecations: "6.0"` without explanatory comment
+### WR-05: `tsconfig.base.json` Uses `ignoreDeprecations: "6.0"` Without Explanation
 
 **File:** `tsconfig.base.json:17`
 
-**Issue:** The `"ignoreDeprecations": "6.0"` compiler option silently suppresses TypeScript errors for features deprecated in TypeScript 6.0. Without a comment explaining which deprecated feature is being suppressed and why, this is an invisible technical debt item. Future maintainers will not know which option is affected, whether the suppression is still needed, or when it can be removed. For a financial ledger where type safety is a first-class invariant, unexplained suppression of type errors is a quality concern.
+**Issue:** `"ignoreDeprecations": "6.0"` silently suppresses TypeScript errors for features deprecated in TypeScript 6.0 without any comment explaining which deprecated feature is being suppressed or why. For a financial ledger project where type correctness is a first-class invariant and where `CLAUDE.md` explicitly prohibits unexplained `@ts-ignore` usage, an unexplained deprecation suppressor is a notable inconsistency. Future maintainers cannot know which option is affected, whether it's still needed, or when it can be removed.
 
-**Fix:** Add an inline comment:
+**Fix:** Add an inline comment identifying the specific deprecated option being used and the reason it cannot be changed yet:
+
 ```json
 {
   "compilerOptions": {
-    // ignoreDeprecations: "6.0" suppresses the error for [SPECIFIC OPTION NAME]
-    // which is still used because [REASON]. Remove when [CONDITION].
+    // ignoreDeprecations: "6.0" — suppresses the TS6 error for ["target": "ES2024" | specific deprecated setting].
+    // Remove when [the upstream dependency / library type / pattern] is updated to TS6-compatible syntax.
     "ignoreDeprecations": "6.0"
   }
 }
 ```
 
-Specifically: identify which deprecated feature this enables (likely `"target"` or `"lib"` settings that were deprecated in TS 6), document it, and set a milestone to clean it up.
+---
+
+### WR-06: `test` CI Job Has No `needs:` Chain — Tests Run Against Potentially Non-Building Code
+
+**File:** `.github/workflows/ci.yml:54`
+
+**Issue:** The `test` matrix job has no `needs:` clause and runs in parallel with `lint`, `typecheck`, and `build`. For a strictly-typed financial codebase, allowing tests to run against code that has not been type-verified means type errors at ledger boundaries (e.g., a mismatch in `amount_cents` type) could be present in the code under test without the CI signal making the relationship clear. The `coverage-gate` and `integration-test` jobs correctly declare `needs: [lint, typecheck, build]`.
+
+**Fix:**
+
+```yaml
+test:
+  name: Test (Node ${{ matrix.node-version }})
+  needs: [lint, typecheck, build]
+  runs-on: ubuntu-latest
+  ...
+```
+
+---
+
+### WR-07: Secret-Scan Tests Pass Silently (Not Skipped) When `gitleaks` Is Absent
+
+**File:** `tests/ci/secret-scan.test.ts:63-66` and `99-102`
+
+**Issue:** The two tests that verify gitleaks detects EC private keys and `SECRET=` assignments use this pattern when gitleaks is not installed:
+
+```typescript
+if (!gitleaksAvailable) {
+  console.warn("Skipping: gitleaks not installed — run: brew install gitleaks");
+  return;
+}
+```
+
+`return` causes the test function to exit early, and Vitest marks the test as **passed** — not skipped. A CI run or local environment without gitleaks installed will show these security-verification tests as green, providing false confidence that secret scanning is operational.
+
+(Note: the first test in the suite, `"gitleaks binary is available on PATH"`, will fail when gitleaks is absent. But because the suite continues, the two detection tests still report as `PASS`.)
+
+**Fix:** Use Vitest's proper skip mechanism so the tests report as `SKIPPED`, not `PASSED`:
+
+```typescript
+it("gitleaks detects EC private key header in a fixture file", (ctx) => {
+  if (!gitleaksAvailable) {
+    ctx.skip();
+    return;
+  }
+  // ... rest of test
+});
+```
+
+Or use `it.skipIf(!gitleaksAvailable)(...)` at declaration time.
 
 ---
 
 ## Info
 
-### IN-01: Renovate scheduled only on weekends — may delay critical security patches
+### IN-01: `gitleaks` Binary Extracted to CWD in History Scan Not in `.gitignore`
+
+**File:** `.github/workflows/ci.yml:167`, `.gitignore`
+
+**Issue:** The `gitleaks-history` job extracts `gitleaks` to the current working directory (`tar -xz gitleaks` without `-C`). On ephemeral CI runners this is harmless. However, the `gitleaks` binary name is not present in `.gitignore`. If a developer replicates this command locally for debugging, the binary lands at repo root and `git add .` would stage it. A 40+ MB binary accidentally committed would bloat the repository permanently (git history is hard to clean).
+
+**Fix:** Add `gitleaks` to `.gitignore`:
+
+```gitignore
+# Local gitleaks binary (may be extracted for debugging)
+gitleaks
+```
+
+---
+
+### IN-02: Renovate Scheduled Only on Weekends — High-Severity CVEs Sit Unpatched for Up to 6 Days
 
 **File:** `renovate.json:5`
 
-**Issue:** `"schedule": ["every weekend"]` means Renovate only opens dependency update PRs on weekends. For a financial OSS project, a high-severity CVE in a direct dependency (e.g., `fastify`, `postgres`, `drizzle-orm`) would sit unnoticed for up to 6 days. This is a configuration trade-off rather than a bug, but for a security-sensitive codebase it is worth a deliberate decision.
+**Issue:** `"schedule": ["every weekend"]` means Renovate only opens dependency PRs on weekends. For a financial OSS library with direct dependencies on `fastify`, `postgres`, `drizzle-orm`, and related packages, a critical CVE could go unnoticed for up to 6 days. This is a deliberate trade-off but worth explicit acknowledgment for a security-sensitive project.
 
-**Fix:** Either add a dedicated schedule for security updates:
+**Fix:** Add a separate `vulnerabilityAlerts` schedule:
+
 ```json
 {
+  "extends": ["config:recommended"],
+  "schedule": ["every weekend"],
+  "automerge": false,
+  "dependencyDashboard": true,
   "vulnerabilityAlerts": {
     "schedule": ["at any time"],
-    "automerge": true,
-    "labels": ["security"]
-  },
-  "schedule": ["every weekend"]
+    "labels": ["security", "priority"]
+  }
 }
 ```
 
-Or acknowledge this as an accepted risk in a comment.
+---
+
+### IN-03: `CONTRIBUTING.md` and `CLAUDE.md` Reference Scripts That Do Not Exist
+
+**File:** `CONTRIBUTING.md:96`, `CLAUDE.md` (Common commands section)
+
+**Issue:** Two documented commands do not exist in `package.json`:
+
+1. `pnpm test:contract` (referenced in `CONTRIBUTING.md`) — no such script defined.
+2. `pnpm db:rollback` (referenced in `CLAUDE.md`) — no such script defined.
+
+Both are Phase-5+ features, but running them currently yields `ERR_PNPM_NO_SCRIPT`, which is confusing to contributors following the setup guide.
+
+**Fix:** Either stub the scripts now (even with a `"not yet implemented"` echo) or annotate the documentation sections with explicit `(Phase 5+)` or `(not yet available)` markers so contributors know not to run them.
 
 ---
 
-### IN-02: `.changeset/config.json` schema loaded from unpkg CDN (not versioned)
+### IN-04: README and CONTRIBUTING Contain Unresolved `<owner>` Placeholder in Clone URL
 
-**File:** `.changeset/config.json:1`
+**File:** `README.md:59`, `CONTRIBUTING.md:67-68`
 
-**Issue:** The `$schema` field references `https://unpkg.com/@changesets/config/schema.json` — an unpinned CDN URL. This is used only for editor validation (not at runtime), but it means the schema version seen in editors can silently change if the `@changesets/config` package on npm is updated. If the schema changes in a breaking way it can cause spurious editor errors. This is low severity but inconsistent with the project's general commitment to pinning.
+**Issue:** Both files contain `https://github.com/<owner>/apruma.git`. This is a placeholder that must be replaced when the repository is published under a real GitHub organization or user account. Contributors following the quickstart will copy an invalid URL.
 
-**Fix:** Either remove the `$schema` field (it has no runtime effect) or pin to a specific version:
+**Fix:** Replace `<owner>` with the real GitHub organization/username before the repository is made public.
+
+---
+
+### IN-05: `biome.json` Coverage Directory Exclusion May Not Match Subdirectory Contents
+
+**File:** `biome.json:30`
+
+**Issue:** The `files.includes` exclusion uses `"!coverage"` (no trailing wildcard or slash). In Biome's glob implementation, `"!coverage"` matches a file or directory entry named exactly `coverage` at any depth, which should effectively exclude the `coverage/` directory. However, the canonical pattern `"!coverage/**"` is more explicit and matches the style of other exclusions in the same list (`"!**/dist"`, `"!**/node_modules"`).
+
+**Fix:**
+
 ```json
-"$schema": "https://unpkg.com/@changesets/config@3.0.5/schema.json"
+"includes": ["**", "!**/dist", "!**/node_modules", "!**/*.d.ts", "!coverage/**"]
 ```
 
 ---
 
-### IN-03: `scripts/changeset-required.sh` is a thin wrapper with no defensive guard for running on `main`
-
-**File:** `scripts/changeset-required.sh:1-7`
-
-**Issue:** The script runs `pnpm changeset status --since=main` with `set -e` but no guard checking whether the current branch is `main`. Running this script directly on `main` will exit with an error code (`changeset status --since=main` on the `main` branch itself returns non-zero because there are no changesets "since main"). This is documented in the CI workflow comment (line 111-112 of ci.yml) but is not handled in the script itself. A developer running `pnpm changeset:check` while on `main` will get a confusing exit code 1.
-
-**Fix:** Add a branch guard at the top of the script:
-```bash
-#!/usr/bin/env bash
-set -e
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-if [ "$CURRENT_BRANCH" = "main" ]; then
-  echo "changeset:check skipped — already on main (nothing to check since main)"
-  exit 0
-fi
-pnpm changeset status --since=main
-```
-
----
-
-_Reviewed: 2026-06-01T00:00:00Z_
+_Reviewed: 2026-06-02T00:00:00Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: deep_
