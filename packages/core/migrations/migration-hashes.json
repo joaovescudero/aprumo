@@ -13,5 +13,6 @@
   "0011_drop_outbound_events_audit_trigger": "442fc0e00708ee2459737fecc21a9be8973fae475da0a8c3b73d15f2230b36d0",
   "0012_numeric_accumulator_post_transaction": "22828c1a7a7b53c26d9f56ce6f0ad892b67599be520cfbcc4eddf1a690e19bab",
   "0013_revoke_execute_all_functions": "f501433907bd16e0ef6dd8d2614f38ca045ceb58280e33655135cbae70016002",
-  "0014_regrant_insert_raw_events": "1a61ecfa981768f89aa382c78b8291f49da25404b8fca8de8f2df2fc7f3cda16"
+  "0014_regrant_insert_raw_events": "1a61ecfa981768f89aa382c78b8291f49da25404b8fca8de8f2df2fc7f3cda16",
+  "0015_set_search_path_double_entry": "d0a108752421bc42d67e6115e857f2eeb7cc4fae83fede018bf31510e1f999a4"
 }
