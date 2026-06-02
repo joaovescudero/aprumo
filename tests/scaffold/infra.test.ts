@@ -7,8 +7,9 @@
  * No imports from @aprumo/* packages (Wave 0 runs before packages exist).
  */
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "../..");
 
@@ -165,5 +166,53 @@ describe("INF-01..05: Monorepo scaffold", () => {
         "packages/webhooks/src/index.ts must exist",
       ).toBe(true);
     });
+  });
+});
+
+describe("readJsonc helper", () => {
+  const tmpFiles: string[] = [];
+
+  function writeTmp(contents: string): string {
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "aprumo-jsonc-")), "config.jsonc");
+    fs.writeFileSync(file, contents, "utf8");
+    tmpFiles.push(file);
+    return file;
+  }
+
+  afterEach(() => {
+    while (tmpFiles.length > 0) {
+      const file = tmpFiles.pop();
+      if (file !== undefined) fs.rmSync(path.dirname(file), { recursive: true, force: true });
+    }
+  });
+
+  it("strips standalone line comments", () => {
+    const file = writeTmp('{\n  // a comment\n  "a": 1\n}');
+    expect(readJsonc(file)).toEqual({ a: 1 });
+  });
+
+  it("strips block comments", () => {
+    const file = writeTmp('{\n  /* a block\n     comment */\n  "a": 1\n}');
+    expect(readJsonc(file)).toEqual({ a: 1 });
+  });
+
+  it("preserves block-comment-like text inside string values", () => {
+    const file = writeTmp('{ "a": "/* not a comment */", "b": 2 }');
+    expect(readJsonc(file)).toEqual({ a: "/* not a comment */", b: 2 });
+  });
+
+  it("preserves line-comment-like text inside string values", () => {
+    const file = writeTmp('{ "url": "https://example.com", "b": 2 }');
+    expect(readJsonc(file)).toEqual({ url: "https://example.com", b: 2 });
+  });
+
+  it("handles a line comment between the last value's comma and the closing brace", () => {
+    const file = writeTmp('{\n  "a": 1,\n  "b": 2, // last\n}');
+    expect(readJsonc(file)).toEqual({ a: 1, b: 2 });
+  });
+
+  it("removes a dangling trailing comma left after a block comment", () => {
+    const file = writeTmp('{\n  "a": 1,\n  "b": 2, /* note */\n}');
+    expect(readJsonc(file)).toEqual({ a: 1, b: 2 });
   });
 });
