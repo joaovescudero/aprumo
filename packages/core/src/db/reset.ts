@@ -2,7 +2,7 @@
  * DB reset script — drops and recreates the aprumo database.
  *
  * DESTRUCTIVE: For development use only. Do NOT run against production.
- * Guarded by NODE_ENV check — will refuse to run unless NODE_ENV=development or NODE_ENV is unset.
+ * Guarded by NODE_ENV allowlist — will only run when NODE_ENV is "development" or "test".
  *
  * Usage:
  *   tsx src/db/reset.ts               (CLI)
@@ -21,9 +21,13 @@ export async function resetDatabase(options?: {
   databaseUrl?: string;
   dbName?: string;
 }): Promise<void> {
-  const nodeEnv = process.env.NODE_ENV;
-  if (nodeEnv === "production") {
-    throw new Error("db:reset refused: NODE_ENV=production. This command is for development only.");
+  const SAFE_ENVS = new Set(["development", "test"]);
+  const nodeEnv = process.env.NODE_ENV ?? "";
+  if (!SAFE_ENVS.has(nodeEnv)) {
+    throw new Error(
+      `db:reset refused: NODE_ENV="${nodeEnv}" is not a permitted environment. ` +
+        `Allowed values: development, test.`,
+    );
   }
 
   // Connect to the system "postgres" database (not the app DB) so we can DROP it.
