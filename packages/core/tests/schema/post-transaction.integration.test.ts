@@ -21,6 +21,34 @@ let account2Id: string;
 beforeAll(async () => {
   db = await createTestDb(import.meta.url);
 
+  // IN-03 guard: verify that migration 0007_revoke_insert_append_only was applied.
+  // The immutability tests below depend on aprumo_app having INSERT revoked on
+  // postings/raw_events (SQLSTATE 42501). Without 0007, those INSERT calls would
+  // succeed (not fail), causing confusing "Expected promise to reject, but it resolved"
+  // failures. This guard surfaces the missing migration as the root cause.
+  try {
+    await db.app.query(
+      `INSERT INTO postings (id, transaction_id, account_id, amount_cents, direction)
+       VALUES (gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), 1, 'debit')`,
+    );
+    throw new Error(
+      "beforeAll guard: aprumo_app could INSERT directly into postings — " +
+        "migration 0007_revoke_insert_append_only has not been applied. " +
+        "The immutability tests will fail or produce incorrect results.",
+    );
+  } catch (err: unknown) {
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      (err as { code: string }).code !== "42501"
+    ) {
+      // Re-throw unexpected errors (e.g. connection failure or our sentinel Error above).
+      throw err;
+    }
+    // code === "42501" is expected — 0007 is applied and the guard passes.
+  }
+
   // Seed 2 accounts via migration role (aprumo_app cannot INSERT into accounts directly
   // until grants are confirmed, but migration role always can).
   // Using gen_random_uuid() inside the query for PG-side UUID generation.
