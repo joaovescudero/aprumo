@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
-status: ready_to_plan
-stopped_at: Phase 02 complete (14/14) — ready to discuss Phase 3
-last_updated: 2026-05-28T21:41:40.916Z
-last_activity: 2026-05-25
+status: executing
+stopped_at: Completed 02-14-PLAN.md
+last_updated: "2026-06-02T17:37:40.715Z"
+last_activity: 2026-06-02 -- Phase 02 execution started
 progress:
   total_phases: 9
   completed_phases: 2
-  total_plans: 21
-  completed_plans: 21
+  total_plans: 22
+  completed_plans: 22
   percent: 22
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-18)
 
 **Core value:** Ledger imutável, ACID estrito, double-entry, agnóstico a PSP — fonte da verdade contábil sobre tudo que se movimenta nos PSPs, sem custodiar dinheiro.
-**Current focus:** Phase 3 — core ledger api
+**Current focus:** Phase 02 — schema-foundation-db-tooling
 
 ## Current Position
 
-Phase: 3
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-05-28
+Phase: 02 (schema-foundation-db-tooling) — EXECUTING
+Plan: 2 of 15
+Status: Ready to execute
+Last activity: 2026-06-02 -- Phase 02 execution started
 
 Progress: [██████████] 100%
 
@@ -135,6 +135,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-25T12:52:07.671Z
+Last session: 2026-06-02T17:37:40.712Z
 Stopped at: Completed 02-14-PLAN.md
 Resume file: None
