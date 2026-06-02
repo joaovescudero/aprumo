@@ -10,16 +10,17 @@ on:
 # Original D-23a (npm OIDC) and D-23b (npm Trusted Publisher) superseded by this decision.
 # Migration to npm registry may be revisited in a future milestone.
 
-permissions:
-  id-token: write    # provenance attestation
-  contents: write    # push version commits + tags
-  pull-requests: write  # create "Version Packages" PR via changesets/action
-  packages: write    # publish to GitHub Packages
+permissions: {}  # default: no permissions for any job unless explicitly granted below
 
 jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write       # provenance attestation
+      contents: write       # push version commits + tags
+      pull-requests: write  # create "Version Packages" PR via changesets/action
+      packages: write       # publish to GitHub Packages
     steps:
       - uses: actions/checkout@v4
         with:
