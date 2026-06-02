@@ -1,12 +1,12 @@
 pre-commit:
-  parallel: true
+  parallel: false  # biome stage_fixed must complete before gitleaks scans staged content
   commands:
-    gitleaks:
-      run: gitleaks protect --staged --redact --config .gitleaks.toml
     biome:
       glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}"
       run: pnpm biome check --no-errors-on-unmatched --files-ignore-unknown=true --colors=off {staged_files}
       stage_fixed: true
+    gitleaks:
+      run: gitleaks protect --staged --redact --config .gitleaks.toml
 
 commit-msg:
   commands:
