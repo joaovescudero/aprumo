@@ -67,7 +67,11 @@ jobs:
       # secret-scan.test.ts asserts gitleaks is on PATH and runs detect fixtures (INF-06).
       # Install the same pinned version the Gitleaks history job uses (D-06).
       - name: Install gitleaks
-        run: curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | sudo tar -xz -C /usr/local/bin gitleaks
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz -o /tmp/gitleaks.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  /tmp/gitleaks.tar.gz" | sha256sum --check
+          sudo tar -xz -C /usr/local/bin gitleaks < /tmp/gitleaks.tar.gz
+          rm /tmp/gitleaks.tar.gz
       - run: pnpm test
         env:
           DATABASE_URL: ""
@@ -94,7 +98,11 @@ jobs:
       - uses: ./.github/actions/setup
       # secret-scan.test.ts (run as part of the coverage suite) asserts gitleaks on PATH (INF-06).
       - name: Install gitleaks
-        run: curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | sudo tar -xz -C /usr/local/bin gitleaks
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz -o /tmp/gitleaks.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  /tmp/gitleaks.tar.gz" | sha256sum --check
+          sudo tar -xz -C /usr/local/bin gitleaks < /tmp/gitleaks.tar.gz
+          rm /tmp/gitleaks.tar.gz
       - name: Run tests with coverage
         run: pnpm vitest run --coverage
         env:
@@ -171,8 +179,9 @@ jobs:
         run: |
           # Use gitleaks CLI directly to apply custom .gitleaks.toml rules
           # (starkbank-private-key rule requires --config .gitleaks.toml)
-          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | tar -xz gitleaks
-          ./gitleaks detect --config .gitleaks.toml --redact --no-banner
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz -o /tmp/gitleaks.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  /tmp/gitleaks.tar.gz" | sha256sum --check
+          sudo tar -xz -C /usr/local/bin gitleaks < /tmp/gitleaks.tar.gz
+          rm /tmp/gitleaks.tar.gz
+          gitleaks detect --config .gitleaks.toml --redact --no-banner
           # For org repos: add GITLEAKS_LICENSE secret (free at gitleaks.io) per RESEARCH.md Pitfall 6
