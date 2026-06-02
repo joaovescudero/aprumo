@@ -210,6 +210,39 @@ describe("post_transaction — FND-09 + CLAUDE.md Invariants #1, #2, #3", () => 
       });
     });
 
+    it("two large-but-individually-valid debit amounts that would overflow BIGINT → P0001 'do not balance' (WR-02 numeric accumulator)", async () => {
+      // WR-02: With a BIGINT accumulator, two debit postings of 4_611_686_018_427_387_904
+      // cents each sum to 9_223_372_036_854_775_808 which exceeds BIGINT_MAX (…807) and
+      // raises SQLSTATE 22003 rather than P0001 — breaking the invariant that all
+      // post_transaction validation errors use ERRCODE P0001.
+      //
+      // Migration 0012 changes v_signed_sum to NUMERIC so accumulation cannot overflow.
+      // The unbalanced sum (positive, non-zero) then raises P0001 'do not balance'.
+      //
+      // Amount chosen: BIGINT_MAX / 2 + 1 = 4_611_686_018_427_387_904.
+      // Two debits: signed_sum = 9_223_372_036_854_775_808 > BIGINT_MAX → overflow with BIGINT.
+      // With NUMERIC: signed_sum = 9_223_372_036_854_775_808 ≠ 0 → P0001 'do not balance'.
+      const HALF_PLUS_ONE = "((9223372036854775807::bigint / 2) + 1)";
+      await expect(
+        db.app.query(
+          `SELECT post_transaction(
+            $1,
+            'accumulator overflow guard test',
+            'manual',
+            '{}'::jsonb,
+            ARRAY[
+              ROW($2, ${HALF_PLUS_ONE}, 'debit')::posting_input,
+              ROW($3, ${HALF_PLUS_ONE}, 'debit')::posting_input
+            ]
+          )`,
+          [randomUUID(), account1Id, account2Id],
+        ),
+      ).rejects.toMatchObject({
+        code: "P0001",
+        message: expect.stringContaining("do not balance"),
+      });
+    });
+
     it("negative amount_cents as CREDIT → P0001 before arithmetic overflow (CR-01 validation order)", async () => {
       // CR-01: Without the validation-order fix, a negative amount_cents on a CREDIT
       // posting causes `v_signed_sum - amount_cents` to be computed BEFORE the

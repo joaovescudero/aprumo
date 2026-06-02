@@ -85,6 +85,13 @@
       "when": 1780416705697,
       "tag": "0011_drop_outbound_events_audit_trigger",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1780416765697,
+      "tag": "0012_numeric_accumulator_post_transaction",
+      "breakpoints": true
     }
   ]
 }
