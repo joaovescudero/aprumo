@@ -5,8 +5,8 @@
  * Verifies that the guard correctly accepts DO $$ blocks (with or without
  * leading SQL line-comments and blank lines) and rejects anything else.
  *
- * RED phase: assertSeedStructure is not yet exported from seed.ts.
- * This file must produce at least one failure (import error) before the fix.
+ * WR-06 invariant: only `--` line-comments and blank lines may precede DO $$.
+ * Any other leading content (block comments, executable SQL) must be rejected.
  */
 import { describe, expect, it } from "vitest";
 import { assertSeedStructure } from "../../src/db/seed.js";
@@ -84,6 +84,15 @@ describe("assertSeedStructure", () => {
       assertSeedStructure(
         "-- just a comment\n\nCREATE TABLE foo (id bigint);\n\nDO $$\nBEGIN\nEND $$;",
       ),
+    ).toThrow(/does not begin with.*DO \$\$/i);
+  });
+
+  it("rejects DO $$ hidden behind a block comment (only -- comments are stripped)", () => {
+    // WR-06: the guard strips only `--` line-comments. A /* ... */ block comment
+    // is NOT stripped, so its opening line becomes the first real line and fails
+    // the DO $$ check — preventing block comments from masking smuggled SQL.
+    expect(() =>
+      assertSeedStructure("/* DO $$ */\nINSERT INTO accounts VALUES (1);\nDO $$\nBEGIN\nEND $$;"),
     ).toThrow(/does not begin with.*DO \$\$/i);
   });
 });
