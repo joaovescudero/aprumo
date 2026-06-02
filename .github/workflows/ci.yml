@@ -54,6 +54,7 @@ jobs:
   # Job 4: Test — Node 22 + 24 matrix (fail-fast: false so both versions always run)
   test:
     name: Test (Node ${{ matrix.node-version }})
+    needs: [lint, typecheck, build]
     runs-on: ubuntu-latest
     strategy:
       matrix:
