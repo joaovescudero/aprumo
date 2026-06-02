@@ -187,13 +187,13 @@ Mapped by gsd-roadmapper on 2026-05-18. All 104 v1 requirements mapped to phases
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INF-01 | Phase 1 | Pending |
-| INF-02 | Phase 1 | Pending |
-| INF-03 | Phase 1 | Pending |
-| INF-04 | Phase 1 | Pending |
+| INF-01 | Phase 1 | Complete |
+| INF-02 | Phase 1 | Complete |
+| INF-03 | Phase 1 | Complete |
+| INF-04 | Phase 1 | Complete |
 | INF-05 | Phase 1 | Complete |
 | INF-06 | Phase 1 | Complete |
-| INF-07 | Phase 1 | Pending |
+| INF-07 | Phase 1 | Complete |
 | INF-08 | Phase 1 | Complete |
 | INF-09 | Phase 1 | Complete |
 | INF-10 | Phase 1 | Complete |
