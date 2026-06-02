@@ -78,8 +78,8 @@ note: Auto-verified ls — all 9 ADRs (0001 → 0009) + README.md present (.gitk
 ## Summary
 
 total: 14
-passed: 13
-issues: 1
+passed: 14
+issues: 0
 pending: 0
 skipped: 0
 blocked: 0
@@ -87,7 +87,8 @@ blocked: 0
 ## Gaps
 
 - truth: "pnpm db:seed runs 0006_seed_dev.sql, creating 2 accounts + 1 balanced transaction via post_transaction"
-  status: failed
+  status: passed
+  resolved_by: "02-15-PLAN.md — extracted assertSeedStructure() that strips leading -- comments + blank lines before the DO $$ check. db:seed now exits 0 (live: accounts=6, transactions=2, postings=4). WR-06 invariant preserved (block comments / executable SQL still rejected; regression test added in 6b0884e)."
   reason: "User reported: Seed failed — file does not begin with the expected DO $$ block. Refusing to execute unrecognised content (exit 1)"
   severity: major
   test: 4
