@@ -199,7 +199,7 @@ export const outboundEvents = pgTable("outbound_events", {
 
 // ---------------------------------------------------------------------------
 // Audit shadow tables
-// Shadow tables are populated by AFTER UPDATE/DELETE triggers (migration 0005).
+// Shadow tables are populated by AFTER UPDATE/DELETE triggers (migration 0004).
 // They are created here so 0000_init_tables.sql includes them; triggers are added later.
 // ---------------------------------------------------------------------------
 
@@ -222,4 +222,19 @@ export const accountsAudit = pgTable("accounts_audit", auditColumns);
 
 export const outboundEndpointsAudit = pgTable("outbound_endpoints_audit", auditColumns);
 
+/**
+ * INTENTIONALLY UNPOPULATED shadow table (WR-02).
+ *
+ * Migration 0011 dropped the audit trigger on outbound_events because delivery-status
+ * updates are high-frequency operational writes that would cause unbounded growth in
+ * this table (no TTL, no partition strategy). See 0011_drop_outbound_events_audit_trigger.sql.
+ *
+ * The table is retained in the schema to avoid a destructive DDL migration, but it will
+ * NOT receive any rows from the audit trigger. Delivery attempt history for debugging
+ * belongs in a dedicated table with explicit TTL — that is a Phase 7+ concern.
+ *
+ * DO NOT query this table expecting audit content. It will be empty in production.
+ * CLAUDE.md Invariant 6 (audit requirement) applies to CONFIG tables (accounts,
+ * outbound_endpoints) — not high-frequency operational tables like outbound_events.
+ */
 export const outboundEventsAudit = pgTable("outbound_events_audit", auditColumns);
