@@ -12,7 +12,8 @@
  *      a. Compute SHA-256 of the .sql file
  *      b. Compare against stored hash
  *      c. Log DRIFT: error if hash differs or file is missing
- *   4. Exit 1 if any drift detected; exit 0 otherwise
+ *   4. Reverse check: detect .sql files on disk absent from _journal.json
+ *   5. Exit 1 if any drift detected; exit 0 otherwise
  *
  * Usage:
  *   node scripts/check-migration-drift.mjs          # check for drift (CI gate)
@@ -22,7 +23,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -96,7 +97,23 @@ function main() {
     }
   }
 
-  // 4. Report result
+  // 4. Reverse check: detect SQL files on disk that are absent from _journal.json.
+  // A developer could add 0010_fix.sql without registering it in the journal — the
+  // migration runner would silently ignore it and the drift gate would not flag it.
+  const journalTags = new Set(entries.map((e) => e.tag));
+  const sqlFilesOnDisk = readdirSync(MIGRATIONS_DIR)
+    .filter((f) => /^\d{4}_.*\.sql$/.test(f))
+    .map((f) => f.replace(/\.sql$/, ""));
+
+  for (const tag of sqlFilesOnDisk) {
+    if (!journalTags.has(tag)) {
+      process.stderr.write(`DRIFT: ${tag}.sql is on disk but not registered in _journal.json\n`);
+      driftedFiles.push(tag);
+      driftDetected = true;
+    }
+  }
+
+  // 5. Report result
   if (driftDetected) {
     process.stderr.write(
       `\nMigration integrity check FAILED. Drifted files: ${driftedFiles.join(", ")}\n`,
