@@ -91,26 +91,30 @@ export function splitMigrationStatements(sql: string): string[] {
     // Check for dollar-quote delimiter (plain `$$` or named `$tag$`).
     // Guard with !inLineComment to prevent a $$ sequence inside a `--` comment
     // from flipping inDollarQuote.
+    //
+    // CR-04 fix: scan only up to the next non-identifier character from i+1 to
+    // build the tag inline, avoiding the greedy `indexOf("$")` that could skip
+    // across `$1` parameter placeholders or PL/pgSQL variable references.
     if (!inLineComment && ch === "$") {
-      // Find the closing `$` of this potential dollar-quote delimiter.
-      const closeIdx = sql.indexOf("$", i + 1);
-      if (closeIdx !== -1) {
-        const tag = sql.slice(i, closeIdx + 1); // e.g. "$$" or "$function$"
+      // Walk forward consuming only word characters ([A-Za-z0-9_]) to build the tag.
+      // Stop at the first non-word character and require it to be `$` for a valid tag.
+      let j = i + 1;
+      while (j < sql.length && /[A-Za-z0-9_]/.test(sql[j] ?? "")) j++;
+      if ((sql[j] ?? "") === "$") {
+        const tag = sql.slice(i, j + 1); // e.g. "$$" or "$function$"
         if (!inDollarQuote) {
-          // Opening delimiter: tag must match PostgreSQL rules (only alphanumeric + underscore).
-          if (/^\$[A-Za-z0-9_]*\$$/.test(tag)) {
-            currentDollarTag = tag;
-            inDollarQuote = true;
-            current += tag;
-            i = closeIdx + 1;
-            continue;
-          }
+          // Opening delimiter: tag already satisfies PostgreSQL rules by construction.
+          currentDollarTag = tag;
+          inDollarQuote = true;
+          current += tag;
+          i = j + 1;
+          continue;
         } else if (tag === currentDollarTag) {
           // Closing delimiter matches the opening tag — exit dollar-quote mode.
           inDollarQuote = false;
           currentDollarTag = null;
           current += tag;
-          i = closeIdx + 1;
+          i = j + 1;
           continue;
         }
       }
