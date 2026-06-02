@@ -8,13 +8,15 @@
 // can run before any package/ directory exists. When packages are scaffolded (Wave 1+),
 // the "packages/*/vitest.config.ts" glob resolves additional per-package projects.
 //
-// Phase 2 (Plan 08): globalSetup starts the shared PG container once per test run.
+// Phase 2 (Plan 08): globalSetup is declared per-package in packages/core/vitest.config.ts.
 // Per D-37: one container global; schema-per-file isolation handled by createTestDb().
+// WR-01: do NOT add globalSetup here — in Vitest workspace mode both root-level and
+// project-level globalSetup are executed, which would start two PG containers and
+// result in non-deterministic pgUri injection.
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    globalSetup: ["packages/core/tests/globalSetup.ts"],
     projects: [
       // Inline project for root-level scaffold and CI gate tests (Wave 0)
       {
