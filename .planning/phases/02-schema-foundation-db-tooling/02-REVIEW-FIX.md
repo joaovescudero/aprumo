@@ -1,154 +1,141 @@
 ---
 phase: 02-schema-foundation-db-tooling
-fixed_at: 2026-05-23T16:30:00Z
+fixed_at: 2026-06-02T13:15:00Z
 review_path: .planning/phases/02-schema-foundation-db-tooling/02-REVIEW.md
-iteration: 1
-findings_in_scope: 9
-fixed: 9
-skipped: 0
-status: all_fixed
+iteration: 3
+findings_in_scope: 14
+fixed: 13
+skipped: 1
+status: partial
 ---
 
 # Phase 02: Code Review Fix Report
 
-**Fixed at:** 2026-05-23T16:30:00Z
+**Fixed at:** 2026-06-02T13:15:00Z
 **Source review:** .planning/phases/02-schema-foundation-db-tooling/02-REVIEW.md
-**Iteration:** 1
+**Iteration:** 3
 
 **Summary:**
-- Findings in scope: 9
-- Fixed: 9
-- Skipped: 0
+- Findings in scope: 14
+- Fixed: 13
+- Skipped: 1
 
 ## Fixed Issues
 
-### CR-01: `aprumo_app` retains direct INSERT privilege on `postings` — SECURITY DEFINER sole-write-path invariant not enforced
+### CR-01: `post_transaction` validates `amount_cents` AFTER accumulating signed sum
 
-**Files modified:** `packages/core/migrations/0007_revoke_insert_append_only.sql`, `packages/core/migrations/meta/_journal.json`, `packages/core/migrations/meta/0007_snapshot.json`, `packages/core/migrations/migration-hashes.json`, `packages/core/tests/schema/post-transaction.integration.test.ts`
-**Commit:** d924824
-**Applied fix:** Created migration `0007_revoke_insert_append_only.sql` that issues `REVOKE INSERT ON TABLE postings FROM aprumo_app` and `REVOKE INSERT ON TABLE raw_events FROM aprumo_app`. Updated journal, snapshot, and hashes. Updated the sole-write-path test to expect SQLSTATE `42501` (permission denied) instead of `23503` (FK violation), and added a second test case verifying INSERT into `raw_events` also fails with `42501`. Existing `0002_grants.sql` is not modified (immutable).
-
----
-
-### CR-02: TOCTOU race in `post_transaction` idempotency guard — concurrent duplicate calls throw `unique_violation`
-
-**Files modified:** `packages/core/migrations/0008_post_transaction_idempotency_race.sql`, `packages/core/migrations/meta/_journal.json`, `packages/core/migrations/meta/0008_snapshot.json`, `packages/core/migrations/migration-hashes.json`
-**Commit:** 9ba34ba
-**Applied fix:** Created migration `0008_post_transaction_idempotency_race.sql` using `CREATE OR REPLACE FUNCTION`. The new implementation wraps `INSERT INTO transactions` in a nested `BEGIN ... EXCEPTION WHEN unique_violation` block. The losing concurrent call catches the exception, re-fetches the winner's row by idempotency key, and returns that UUID — satisfying CLAUDE.md Invariant #3 without error. Postings are only inserted by the call that won the INSERT race. Existing `0003_post_transaction.sql` is not modified (immutable).
-**Status:** fixed: requires human verification (concurrent race logic — sequential tests pass but concurrent behavior requires load testing to confirm)
+**Files modified:** `packages/core/migrations/0010_fix_validation_order.sql`, `packages/core/migrations/meta/_journal.json`, `packages/core/migrations/meta/0010_snapshot.json`, `packages/core/migrations/migration-hashes.json`, `packages/core/tests/schema/post-transaction.integration.test.ts`
+**Commit:** `dccc6b7`
+**Applied fix:** Created migration `0010_fix_validation_order.sql` using `CREATE OR REPLACE FUNCTION` that reorders the validation loop — `amount_cents <= 0` check now fires BEFORE the direction branch accumulates `v_signed_sum`. This prevents a CREDIT posting with `amount_cents = BIGINT_MIN` from executing `v_signed_sum - BIGINT_MIN` (which overflows BIGINT) before the guard fires. Added a failing test in `post-transaction.integration.test.ts` (TDD RED) that sends `amount_cents = BIGINT_MIN` as a credit and expects P0001 "must be positive". Migrations 0003 and 0008 are immutable and unchanged.
+**Status:** fixed: requires human verification (logic fix — integration tests confirm behavior but require a running container)
 
 ---
 
-### WR-01: `coverage-gate` CI job lacks `TESTCONTAINERS_RYUK_DISABLED=true` and has no `needs:` dependency
+### CR-02: `migrate.ts` wraps ALL pending migrations in a single outer transaction
 
-**Files modified:** `.github/workflows/ci.yml`
-**Commit:** 47161f6
-**Applied fix:** Added `needs: [lint, typecheck, build]` to the `coverage-gate` job so it only runs after prerequisite checks pass. Added `TESTCONTAINERS_RYUK_DISABLED: "true"` and `DATABASE_URL: ""` env vars to the `Run tests with coverage` step, matching the existing `integration-test` job's configuration.
+**Files modified:** `packages/core/src/db/migrate.ts`
+**Commit:** `7511893`
+**Applied fix:** Moved schema/table creation for `drizzle.__drizzle_migrations` outside the per-migration loop (committed immediately as autocommit), then restructured so each migration runs inside its own `sql.begin()` transaction. If migration N fails, previously-committed migrations N-1, N-2, ... are NOT rolled back, preventing the retry-against-non-idempotent-DDL loop. Matches the pattern used by `applyMigrationsToSchema.ts`.
 
 ---
 
-### WR-02: `reset.ts` URL regex is fragile for PostgreSQL connection strings with `/` in credentials
+### CR-03: `reset.ts` environment guard uses deny-list instead of allowlist
 
 **Files modified:** `packages/core/src/db/reset.ts`
-**Commit:** 1f0b05e
-**Applied fix:** Replaced the fragile `appDbUrl.replace(/\/[^/?]+(\?.*)?$/, "/postgres")` regex with `new URL(appDbUrl); parsed.pathname = "/postgres"; parsed.toString()`. The `URL` class correctly parses the URL structure regardless of special characters in the password portion. `URL` is a Node.js global, no additional import required.
+**Commit:** `273d84c`
+**Applied fix:** Replaced the `if (nodeEnv === "production") throw` deny-list with `const SAFE_ENVS = new Set(["development", "test"]); if (!SAFE_ENVS.has(nodeEnv)) throw`. Now `db:reset` only runs when `NODE_ENV` is explicitly `"development"` or `"test"`. Any other value including `undefined`, `"staging"`, `"ci"`, or `"production"` is rejected with a clear error message identifying the disallowed value and the allowed set.
 
 ---
 
-### WR-03: `account_balance.last_posting_id` has no FK constraint to `postings.id`
-
-**Files modified:** `packages/core/src/db/schema.ts`, `packages/core/migrations/0009_account_balance_last_posting_fk.sql`, `packages/core/migrations/meta/_journal.json`, `packages/core/migrations/meta/0009_snapshot.json`, `packages/core/migrations/migration-hashes.json`
-**Commit:** 8bd92da
-**Applied fix:** Added `.references(() => postings.id)` to `last_posting_id` in the Drizzle schema. Created migration `0009_account_balance_last_posting_fk.sql` which adds the FK using `NOT VALID` so existing NULL rows are not rejected and the constraint is enforced only on future writes. The Drizzle snapshot for 0009 reflects the new FK in `account_balance.foreignKeys`. `VALIDATE CONSTRAINT` can be run when the balance worker is implemented.
-
----
-
-### WR-04: `splitMigrationStatements` dollar-quote parser does not handle named dollar-quotes (`$tag$`)
+### CR-04: `splitMigrationStatements` dollar-quote parser greedy `indexOf` scan
 
 **Files modified:** `packages/core/tests/helpers/applyMigrationsToSchema.ts`
-**Commit:** 6b4ed5f
-**Applied fix:** Replaced the simple `$$` toggle with a tag-aware parser. When a `$` is encountered outside a comment, the parser now finds the closing `$` to extract the full tag (e.g., `$function$`). If not in dollar-quote mode, it enters only when the tag matches `^\$[A-Za-z0-9_]*\$$` (PostgreSQL rule). If in dollar-quote mode, it exits only when the identical closing tag is found. This prevents premature exit when `$$` appears inside a `$function$...$function$` body. Added `currentDollarTag` state variable to track the opening delimiter.
+**Commit:** `b5ea8fb`
+**Applied fix:** Replaced the greedy `sql.indexOf("$", i + 1)` with an inline character-by-character scan: walk forward consuming only `[A-Za-z0-9_]` word characters, then require the next character to be `$` to constitute a valid tag. Tags formed this way are correct by construction (satisfy the PostgreSQL dollar-quote rule) without needing the regex guard. `$1` parameter placeholders no longer cause false dollar-quote mode entry because `1` IS a word character but the character after it is not `$` (unless adjacent to another `$`).
 
 ---
 
-### IN-01: `console.log` / `console.error` in CLI scripts
+### WR-02: `outbound_events_audit_trigger` fires on every delivery status update
 
-**Files modified:** `packages/core/src/db/migrate.ts`, `packages/core/src/db/reset.ts`, `packages/core/src/db/seed.ts`
-**Commit:** 18cd6c2
-**Applied fix:** Replaced all `console.log(...)` calls with `process.stdout.write("...\n")` and all `console.error(...)` calls with `process.stderr.write(\`...\n\`)` in the three CLI entry-point scripts. This satisfies the CLAUDE.md structured-logging convention for published tooling scripts.
-
----
-
-### IN-02: Test container pinned to `postgres:18-alpine` instead of documented minimum `postgres:16-alpine`
-
-**Files modified:** `packages/core/tests/setup/container.ts`
-**Commit:** 05532ae
-**Applied fix:** Changed `PG_IMAGE` from `postgres:18-alpine@sha256:96d56f7f...` to `postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229`. The digest was obtained by pulling the image locally (`docker pull postgres:16-alpine`) and inspecting the repo digest. This ensures the test suite validates against the documented minimum supported Postgres version.
+**Files modified:** `packages/core/migrations/0011_drop_outbound_events_audit_trigger.sql`, `packages/core/migrations/meta/_journal.json`, `packages/core/migrations/meta/0011_snapshot.json`, `packages/core/migrations/migration-hashes.json`
+**Commit:** `b24ae5d`
+**Applied fix:** Created migration `0011_drop_outbound_events_audit_trigger.sql` that issues `DROP TRIGGER IF EXISTS outbound_events_audit_trigger ON outbound_events`. The `outbound_events_audit` shadow table is retained (not dropped) to avoid data loss for databases that have already accumulated rows. Migration drift gate verified: 12 migrations pass.
 
 ---
 
-### IN-03: `migration-drift.test.ts` uses bare `__dirname` not available in native ESM
+### WR-03: `check-migration-drift.mjs` does not detect SQL files absent from journal
 
-**Files modified:** `packages/core/tests/infra/migration-drift.test.ts`
-**Commit:** 7985831
-**Applied fix:** Added `import { dirname } from "node:path"` and `import { fileURLToPath } from "node:url"`, then declared `const __dirname = dirname(fileURLToPath(import.meta.url))` before the `REPO_ROOT` computation. This matches the pattern used by all other test helpers in the project (`applyMigrationsToSchema.ts`, `createTestDb.ts`, `migrate.ts`, and the `.mjs` scripts).
+**Files modified:** `scripts/check-migration-drift.mjs`
+**Commit:** `bbe636a`
+**Applied fix:** Added a reverse check (step 4) after the forward hash check. Uses `readdirSync(MIGRATIONS_DIR)` to list all `\d{4}_.*\.sql` files on disk, filters to those not in the journal's tag set, and emits `DRIFT: {tag}.sql is on disk but not registered in _journal.json` for each unregistered file. Added `readdirSync` to the `node:fs` import. The forward check was renumbered from step 4 to step 5 in both the algorithm comment and the inline comment.
 
 ---
 
-_Fixed: 2026-05-23T16:30:00Z_
+### WR-04: `createTestDb` grants `ALL PRIVILEGES` to `aprumo_migration` in test schemas
+
+**Files modified:** `packages/core/tests/helpers/createTestDb.ts`
+**Commit:** `f0906ea`
+**Applied fix:** Changed `GRANT ALL PRIVILEGES ON ALL TABLES` to `GRANT SELECT, INSERT ON ALL TABLES` for `aprumo_migration`. Changed `GRANT ALL PRIVILEGES ON ALL SEQUENCES` to `GRANT USAGE, SELECT ON ALL SEQUENCES`. This matches the minimum needed for SECURITY DEFINER functions (e.g. `post_transaction`) and ensures tests accurately reflect the production permission boundary — in particular, that `aprumo_migration` cannot UPDATE or DELETE `postings`/`raw_events` in test schemas either.
+
+---
+
+### WR-05: CI `coverage-gate` job does not declare a dependency on `test`
+
+**Files modified:** `.github/workflows/ci.yml`
+**Commit:** `b363f52`
+**Applied fix:** Added `test` to the `needs` list of the `coverage-gate` job: `needs: [lint, typecheck, build, test]`. Coverage now only runs after all `test` matrix jobs (Node 22 and Node 24) pass. Added inline comment documenting the WR-05 fix rationale.
+
+---
+
+### WR-06: `seed.ts` uses `sql.unsafe()` without content validation
+
+**Files modified:** `packages/core/src/db/seed.ts`
+**Commit:** `fee4a91`
+**Applied fix:** Added structural validation before `sql.unsafe()`: checks that `seedContent` matches `/^\s*DO\s+\$\$/` and throws an error with the resolved path if it does not. Added `process.stdout.write` of the resolved seed path for audit purposes.
+
+---
+
+### IN-01: `_journal.json` entries 0007–0009 have anomalous timestamps
+
+**Files modified:** `packages/core/migrations/meta/_journal.json`
+**Commit:** `16e2aba`
+**Applied fix:** Updated the `when` values for entries 0007, 0008, 0009 to be monotonically increasing after entry 0006 (`1779485643554`): 0007=`1779485703554`, 0008=`1779485763554`, 0009=`1779485823554` (each 60 seconds apart, consistent with the generation cadence). The `migrate.ts` runner stores these as `created_at` in `drizzle.__drizzle_migrations`, so any tooling sorting by `created_at` will now produce correct ordering.
+
+---
+
+### IN-02: `vitest.config.ts` does not configure the coverage provider
+
+**Files modified:** `packages/core/vitest.config.ts`
+**Commit:** `d670fb1`
+**Applied fix:** Added a `coverage` block with `provider: "v8"`, `reporter: ["text", "json", "json-summary", "lcov"]`, and `thresholds: { lines: 90 }`. The `json-summary` reporter is required by the `davelosert/vitest-coverage-report-action` CI step. `lcov` is required for the `Upload lcov artifact` CI step.
+
+---
+
+### IN-03: Immutability tests have implicit dependency on migration 0007
+
+**Files modified:** `packages/core/tests/schema/post-transaction.integration.test.ts`
+**Commit:** `73a2003`
+**Applied fix:** Added a `beforeAll` guard that probes `aprumo_app`'s INSERT ability into `postings`. If the INSERT succeeds (migration 0007 not applied), the guard throws a descriptive error: "migration 0007_revoke_insert_append_only has not been applied". If the INSERT fails with any error other than `42501`, the error is re-thrown for diagnosis. Only `42501` (the expected `insufficient_privilege`) passes silently, confirming 0007 is active.
+
+---
+
+### IN-04: `drizzle.config.ts` lacks comment prohibiting `drizzle-kit push`
+
+**Files modified:** `packages/core/drizzle.config.ts`
+**Commit:** `ef305c3`
+**Applied fix:** Added a prominent JSDoc-style comment block above the `import` documenting: (1) `drizzle-kit push` is PROHIBITED, (2) why (bypasses versioned migration files and drift gate), (3) that `dbCredentials` is intentionally absent to prevent accidental push, and (4) the allowed commands (`generate`, `check`, `studio`).
+
+---
+
+## Skipped Issues
+
+### WR-01: `0002_grants.sql` INSERT privilege gap on postings/raw_events
+
+**File:** `packages/core/migrations/0002_grants.sql:8`
+**Reason:** already resolved by existing migration 0007_revoke_insert_append_only.sql. Migration 0007 issues `REVOKE INSERT ON TABLE postings FROM aprumo_app` and `REVOKE INSERT ON TABLE raw_events FROM aprumo_app`, exactly as the WR-01 fix suggests. The gap only exists in databases with 0002-0006 applied but not 0007 — the migration chain is complete and 0007 always runs. Creating an additional migration would be redundant and add noise to the deployment chain. No net change to the deployed state would result.
+
+---
+
+_Fixed: 2026-06-02T13:15:00Z_
 _Fixer: Claude (gsd-code-fixer)_
-_Iteration: 1_
-
----
-
-# Phase 02 Plan 14 Addendum: Code Review Fix Report (Iteration 2)
-
----
-fixed_at: 2026-05-28T21:45:00Z
-review_path: .planning/phases/02-schema-foundation-db-tooling/02-REVIEW.md
-iteration: 2
-findings_in_scope: 3
-fixed: 3
-skipped: 0
-status: all_fixed
----
-
-**Fixed at:** 2026-05-28T21:45:00Z
-**Source review:** `.planning/phases/02-schema-foundation-db-tooling/02-REVIEW.md` (addendum — plan 02-14 delta)
-**Iteration:** 2
-
-**Summary:**
-- Findings in scope: 3 (1 Critical, 2 Warning; Info skipped per scope)
-- Fixed: 3
-- Skipped: 0
-
-## Fixed Issues (Iteration 2)
-
-### CR-01: teardown() destroys container when APRUMO_TEST_REUSE=1 — withReuse() was silently inoperative
-
-**Files modified:** `packages/core/tests/globalSetup.ts`
-**Commit:** `d269a69`
-**Applied fix:** Added module-scope `let useReuseGlobal = false` flag. In `setup()`, `useReuseGlobal = useReuse` is set immediately after reading the env var. In `teardown()`, the `container.stop()` call is now guarded by `!useReuseGlobal` — reuse-mode containers are intentionally long-lived and are not stopped between runs. Non-reuse containers are stopped as before.
-
-### WR-01: Outer catch block conflated Docker-unavailability with role-creation errors — misleading diagnostic
-
-**Files modified:** `packages/core/tests/globalSetup.ts`
-**Commit:** `d269a69` (combined with CR-01 — same file, same commit)
-**Applied fix:** Split the single outer `try/catch` into two independent `try/catch` blocks. The first wraps only `builder.start()` and returns early (with `project.provide("pgUri", "")`) on Docker failure. The role-creation block now runs after the container-start scope closes; `adminSql.end()` errors cannot escape to the Docker-unavailability path. Each failure mode is now independently diagnosed.
-
-### WR-02: RACE-01 was a vacuous test — passed with zero assertions when race did not trigger
-
-**Files modified:** `packages/core/tests/helpers/globalSetup.race.test.ts`
-**Commit:** `ac5abbe`
-**Applied fix:** Changed `it(...)` to `it.skip(...)` for RACE-01 and appended `(documentation — non-deterministic, see RACE-02 for the regression gate)` to the test name. Test body is preserved verbatim for documentation value. RACE-02 remains active as the real regression gate confirming roles are pre-created before any worker fork.
-
-## Verification
-
-- `pnpm --filter @aprumo/core typecheck`: exit 0 (no type errors)
-- `pnpm --filter @aprumo/core test --run`: exit 0 (65 tests passed, 10 test files)
-
----
-
-_Fixed: 2026-05-28T21:45:00Z_
-_Fixer: Claude (gsd-code-fixer)_
-_Iteration: 2_
+_Iteration: 3_
