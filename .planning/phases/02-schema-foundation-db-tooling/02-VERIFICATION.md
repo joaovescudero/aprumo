@@ -1,8 +1,10 @@
 ---
 phase: 02-schema-foundation-db-tooling
 verified: 2026-06-02T14:46:00Z
-status: human_needed
+status: pass
 score: 7/7
+human_verification_resolved: 2026-06-02
+human_verification_evidence: "02-HUMAN-UAT.md — all 3 human-sign-off items confirmed pass (3/3); reconciled against canonical 02-UAT.md (14/14 pass)"
 overrides_applied: 0
 re_verification:
   previous_status: human_needed
@@ -29,7 +31,7 @@ human_verification:
 
 **Phase Goal:** `pnpm db:migrate` runs to completion on a fresh Postgres 16 container, producing all ledger tables with immutability enforced at three layers (role permissions, `post_transaction` sole write path, deferred constraint trigger), and the testcontainers globalSetup makes integration tests possible.
 **Verified:** 2026-06-02T14:46:00Z
-**Status:** human_needed (7/7 automated truths verified; 3 items need human sign-off — same structural items from prior cycle, not gaps)
+**Status:** pass (7/7 automated truths verified; 3 human sign-off items all confirmed pass in 02-HUMAN-UAT.md — see human_verification_resolved)
 **Re-verification:** Yes — after gap-closure plan 02-15 (WR-06 seed guard fix for comment-header seed files)
 
 ---
