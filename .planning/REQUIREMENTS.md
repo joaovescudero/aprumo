@@ -31,7 +31,7 @@
 ### Infrastructure (INF) — Phase 1
 
 - [ ] **INF-01**: `pnpm-workspace.yaml` + `package.json` raiz com pacotes `@aprumo/core`, `@aprumo/connector-base`, `@aprumo/connector-starkbank`, `@aprumo/webhooks`
-- [ ] **INF-02**: `tsconfig.base.json` com `strict: true`, `noUncheckedIndexedAccess: true`, target Node 22+
+- [x] **INF-02**: `tsconfig.base.json` com `strict: true`, `noUncheckedIndexedAccess: true`, target Node 22+
 - [ ] **INF-03**: Biome configurado para lint + format em todos os pacotes (Biome 2.4+)
 - [ ] **INF-04**: Vitest configurado com coverage v8, gate 90% LoC em `@aprumo/core`, 80% nos demais
 - [x] **INF-05**: `commitlint` + Conventional Commits em pre-commit hook
@@ -293,6 +293,7 @@ Mapped by gsd-roadmapper on 2026-05-18. All 104 v1 requirements mapped to phases
 | DOC-10 | Phase 9 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 104 total (FND:18, INF:10, API:13, BAL:8, CNB:7, SBC:11, WHI:11, WHO:11, OBS:5, DOC:10)
 - Mapped to phases: 104/104 (100%) ✓
 - Unmapped: 0 ✓
