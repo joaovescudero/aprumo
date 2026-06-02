@@ -384,9 +384,15 @@ export async function applyMigrationsToSchema(
                 .trim()
                 .toUpperCase()
                 .slice(0, 20);
-              const isRoleStatement =
-                firstToken.startsWith("CREATE ROLE") || firstToken.startsWith("DO ");
-              if ((pgCode === "23505" || pgCode === "42710") && isRoleStatement) {
+              // WR-01 fix: tighten the DO-block check to only tolerate 23505/42710
+              // for role-creation DO blocks (i.e. 0001_roles.sql). The previous check
+              // matched any "DO " prefix, which would silently swallow duplicate errors
+              // from future data-migration DO blocks, leaving the schema partially applied.
+              const isRoleCreationBlock =
+                firstToken.startsWith("CREATE ROLE") ||
+                (firstToken.startsWith("DO ") &&
+                  /CREATE\s+ROLE\s+aprumo_/i.test(trimmed.replace(/--[^\n]*/g, "")));
+              if ((pgCode === "23505" || pgCode === "42710") && isRoleCreationBlock) {
                 // Role already created by a concurrent fork — safely idempotent.
                 // Savepoint is automatically rolled back on error; outer tx continues.
                 return;
