@@ -92,6 +92,13 @@
       "when": 1780416765697,
       "tag": "0012_numeric_accumulator_post_transaction",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1780416825697,
+      "tag": "0013_revoke_execute_all_functions",
+      "breakpoints": true
     }
   ]
 }
