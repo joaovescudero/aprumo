@@ -218,7 +218,14 @@ describe("post_transaction — FND-09 + CLAUDE.md Invariants #1, #2, #3", () => 
       //
       // RED before 0010 is applied: may get an arithmetic error (22003) instead of P0001.
       // GREEN after 0010: raises P0001 with 'must be positive'.
-      const BIGINT_MIN = "-9223372036854775808";
+      //
+      // NOTE: BIGINT_MIN (-9223372036854775808) cannot be written as a direct SQL
+      // literal — `-9223372036854775808::bigint` parses as `-(9223372036854775808::bigint)`
+      // and the magnitude 9223372036854775808 exceeds BIGINT_MAX (…807), so the cast
+      // itself raises 22003 during argument evaluation, BEFORE post_transaction runs.
+      // We construct BIGINT_MIN via in-range arithmetic instead so the value reaches
+      // the function body and exercises the accumulation-overflow path.
+      const BIGINT_MIN = "((-9223372036854775807)::bigint - 1)";
       await expect(
         db.app.query(
           `SELECT post_transaction(
@@ -227,7 +234,7 @@ describe("post_transaction — FND-09 + CLAUDE.md Invariants #1, #2, #3", () => 
             'manual',
             '{}'::jsonb,
             ARRAY[
-              ROW($2, ${BIGINT_MIN}::bigint, 'credit')::posting_input,
+              ROW($2, ${BIGINT_MIN}, 'credit')::posting_input,
               ROW($3, 100, 'debit')::posting_input
             ]
           )`,
