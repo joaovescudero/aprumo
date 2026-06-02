@@ -177,6 +177,39 @@ describe("post_transaction — FND-09 + CLAUDE.md Invariants #1, #2, #3", () => 
         message: expect.stringContaining("must be positive"),
       });
     });
+
+    it("negative amount_cents as CREDIT → P0001 before arithmetic overflow (CR-01 validation order)", async () => {
+      // CR-01: Without the validation-order fix, a negative amount_cents on a CREDIT
+      // posting causes `v_signed_sum - amount_cents` to be computed BEFORE the
+      // amount_cents <= 0 check runs. For BIGINT_MIN (-9223372036854775808) as a credit,
+      // `0 - (-9223372036854775808)` overflows BIGINT and raises a PostgreSQL numeric
+      // error instead of the expected P0001.
+      //
+      // Migration 0010_fix_validation_order moves the positivity check BEFORE
+      // accumulation so any negative input raises P0001 "must be positive" cleanly.
+      //
+      // RED before 0010 is applied: may get an arithmetic error (22003) instead of P0001.
+      // GREEN after 0010: raises P0001 with 'must be positive'.
+      const BIGINT_MIN = "-9223372036854775808";
+      await expect(
+        db.app.query(
+          `SELECT post_transaction(
+            $1,
+            'bigint overflow guard test',
+            'manual',
+            '{}'::jsonb,
+            ARRAY[
+              ROW($2, ${BIGINT_MIN}::bigint, 'credit')::posting_input,
+              ROW($3, 100, 'debit')::posting_input
+            ]
+          )`,
+          [randomUUID(), account1Id, account2Id],
+        ),
+      ).rejects.toMatchObject({
+        code: "P0001",
+        message: expect.stringContaining("must be positive"),
+      });
+    });
   });
 
   describe("immutability — sole write path enforcement (CLAUDE.md Invariant #1)", () => {
