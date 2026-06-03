@@ -9,7 +9,7 @@
  * Any other leading content (block comments, executable SQL) must be rejected.
  */
 import { describe, expect, it } from "vitest";
-import { assertSeedStructure } from "../../src/db/seed.js";
+import { assertSeedStructure } from "../../src/db/seed-guard.js";
 
 describe("assertSeedStructure", () => {
   // ──────────────────────────────────────────────────────────────────────────
