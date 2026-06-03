@@ -36,7 +36,7 @@ created: 2026-05-29
 |-----------|----------|-----------|-------------|------------|--------|
 | T-2-01 | Tampering / Priv. Escalation | aprumo_app UPDATE/DELETE/INSERT on postings & raw_events | mitigate | Three-layer immutability: `REVOKE UPDATE, DELETE` in `0002_grants.sql` (2 matches); `post_transaction` SECURITY DEFINER owns INSERT (`0003`); deferred constraint trigger at COMMIT (`0005`). Integration tests assert `42501` on direct write. | closed |
 | T-2-02 | Tampering | Schema drift between environments | mitigate | `migration-hashes.json` committed + `migration-drift.test.ts` / CI drift gate exits 1 on any edit or missing `_journal.json` hash. | closed |
-| T-2-03 | Tampering | Unbalanced postings & amount_cents precision | mitigate | `bigint({ mode: 'bigint' })` on all 9 money columns (no float); `post_transaction` validates sum=0 (P0001); deferred trigger re-validates at COMMIT. | closed |
+| T-2-03 | Tampering | Unbalanced postings & amount_cents precision | mitigate | `bigint({ mode: 'bigint' })` on all 5 money columns (no float; no bare `bigint()`); `post_transaction` validates sum=0 (P0001, positivity check before arithmetic to dodge BIGINT_MIN overflow); deferred trigger re-validates at COMMIT. | closed |
 | T-2-04 | Info Disclosure / Spoofing | Credentials in migrations; search_path injection | mitigate | No passwords in `0001_roles.sql` (grep=0); passwords via env only; gitleaks (Phase 1) blocks slips; `SET search_path = public` in all SECURITY DEFINER functions. | closed |
 | T-2-05 | Tampering | Test data leakage / schema collision | mitigate | Schema-per-file via SHA1(testPath); per-schema `_drizzle_migrations`; `afterAll` runs `DROP SCHEMA CASCADE`; forks pool isolates state. | closed |
 | T-2-06 | Injection | `EXECUTE format()` SQLi via `TG_TABLE_NAME` | mitigate | `%I` identifier quoting in `0004_audit_triggers.sql` (3 matches); `audit_row_change()` is SECURITY DEFINER. | closed |
@@ -66,6 +66,7 @@ created: 2026-05-29
 | Audit Date | Threats Total | Closed | Open | Run By |
 |------------|---------------|--------|------|--------|
 | 2026-05-29 | 11 | 11 | 0 | gsd-secure-phase (orchestrator, short-circuit: register_authored_at_plan_time=true, threats_open=0) |
+| 2026-06-02 | 11 | 11 | 0 | gsd-security-auditor (mitigations verified in implementation — file:line evidence per threat; no short-circuit). Doc fix: money columns 9→5. |
 
 ---
 

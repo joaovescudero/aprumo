@@ -97,10 +97,13 @@ export async function createTestDb(testPath: string): Promise<TestDb> {
   await setupSql`GRANT USAGE ON SCHEMA ${setupSql(schema)} TO aprumo_migration`;
   // In production, aprumo_migration OWNS all tables (it creates them), so it has
   // implicit ALL PRIVILEGES. In the test schema, the container superuser owns the
-  // tables. Grant ALL to aprumo_migration so SECURITY DEFINER functions that run
-  // as aprumo_migration (e.g. post_transaction) can SELECT/INSERT as expected.
-  await setupSql`GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA ${setupSql(schema)} TO aprumo_migration`;
-  await setupSql`GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA ${setupSql(schema)} TO aprumo_migration`;
+  // tables. Grant only SELECT + INSERT to aprumo_migration — matching the minimum
+  // needed for SECURITY DEFINER functions (e.g. post_transaction) and preventing
+  // test grants from masking the production privilege boundary (WR-04).
+  // UPDATE and DELETE on postings/raw_events are intentionally NOT granted so
+  // tests accurately reflect the append-only constraint from 0007_revoke_insert_append_only.
+  await setupSql`GRANT SELECT, INSERT ON ALL TABLES IN SCHEMA ${setupSql(schema)} TO aprumo_migration`;
+  await setupSql`GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA ${setupSql(schema)} TO aprumo_migration`;
   await setupSql.end();
 
   // Parse host/port/db from container URI for role-specific connection.

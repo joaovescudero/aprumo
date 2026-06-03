@@ -54,22 +54,64 @@
     {
       "idx": 7,
       "version": "7",
-      "when": 1748044800000,
+      "when": 1779485703554,
       "tag": "0007_revoke_insert_append_only",
       "breakpoints": true
     },
     {
       "idx": 8,
       "version": "7",
-      "when": 1748044860000,
+      "when": 1779485763554,
       "tag": "0008_post_transaction_idempotency_race",
       "breakpoints": true
     },
     {
       "idx": 9,
       "version": "7",
-      "when": 1748044920000,
+      "when": 1779485823554,
       "tag": "0009_account_balance_last_posting_fk",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1780416135596,
+      "tag": "0010_fix_validation_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1780416705697,
+      "tag": "0011_drop_outbound_events_audit_trigger",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1780416765697,
+      "tag": "0012_numeric_accumulator_post_transaction",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1780416825697,
+      "tag": "0013_revoke_execute_all_functions",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1780500000000,
+      "tag": "0014_regrant_insert_raw_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1780500060000,
+      "tag": "0015_set_search_path_double_entry",
       "breakpoints": true
     }
   ]

@@ -1,154 +1,106 @@
 ---
 phase: 02-schema-foundation-db-tooling
-fixed_at: 2026-05-23T16:30:00Z
+fixed_at: 2026-06-02T23:32:35Z
 review_path: .planning/phases/02-schema-foundation-db-tooling/02-REVIEW.md
 iteration: 1
-findings_in_scope: 9
-fixed: 9
-skipped: 0
-status: all_fixed
+findings_in_scope: 8
+fixed: 7
+skipped: 1
+status: partial
 ---
 
-# Phase 02: Code Review Fix Report
+# Phase 02: Code Review Fix Report (deep pass)
 
-**Fixed at:** 2026-05-23T16:30:00Z
-**Source review:** .planning/phases/02-schema-foundation-db-tooling/02-REVIEW.md
+**Fixed at:** 2026-06-02T23:32:35Z
+**Source review:** .planning/phases/02-schema-foundation-db-tooling/02-REVIEW.md (deep depth)
 **Iteration:** 1
 
 **Summary:**
-- Findings in scope: 9
-- Fixed: 9
-- Skipped: 0
+- Findings in scope (--all): 8 (CR-01, CR-02, WR-01, WR-02, WR-03, IN-01, IN-02, IN-03)
+- Fixed: 7
+- Skipped: 1 (IN-03 — lives in immutable migration)
+
+> Supersedes the prior standard-pass fix report. The deep cross-file review found
+> a different, more serious finding set (notably the raw_events INSERT revoke and
+> the missing search_path on the double-entry trigger). The standard-pass fixes
+> (seed.ts guard, beforeAll guard, etc.) remain committed earlier in history.
 
 ## Fixed Issues
 
-### CR-01: `aprumo_app` retains direct INSERT privilege on `postings` — SECURITY DEFINER sole-write-path invariant not enforced
+### CR-01: 0007 revokes INSERT on raw_events from aprumo_app — breaks Invariant 4 (exact-once webhook)
 
-**Files modified:** `packages/core/migrations/0007_revoke_insert_append_only.sql`, `packages/core/migrations/meta/_journal.json`, `packages/core/migrations/meta/0007_snapshot.json`, `packages/core/migrations/migration-hashes.json`, `packages/core/tests/schema/post-transaction.integration.test.ts`
-**Commit:** d924824
-**Applied fix:** Created migration `0007_revoke_insert_append_only.sql` that issues `REVOKE INSERT ON TABLE postings FROM aprumo_app` and `REVOKE INSERT ON TABLE raw_events FROM aprumo_app`. Updated journal, snapshot, and hashes. Updated the sole-write-path test to expect SQLSTATE `42501` (permission denied) instead of `23503` (FK violation), and added a second test case verifying INSERT into `raw_events` also fails with `42501`. Existing `0002_grants.sql` is not modified (immutable).
-
----
-
-### CR-02: TOCTOU race in `post_transaction` idempotency guard — concurrent duplicate calls throw `unique_violation`
-
-**Files modified:** `packages/core/migrations/0008_post_transaction_idempotency_race.sql`, `packages/core/migrations/meta/_journal.json`, `packages/core/migrations/meta/0008_snapshot.json`, `packages/core/migrations/migration-hashes.json`
-**Commit:** 9ba34ba
-**Applied fix:** Created migration `0008_post_transaction_idempotency_race.sql` using `CREATE OR REPLACE FUNCTION`. The new implementation wraps `INSERT INTO transactions` in a nested `BEGIN ... EXCEPTION WHEN unique_violation` block. The losing concurrent call catches the exception, re-fetches the winner's row by idempotency key, and returns that UUID — satisfying CLAUDE.md Invariant #3 without error. Postings are only inserted by the call that won the INSERT race. Existing `0003_post_transaction.sql` is not modified (immutable).
-**Status:** fixed: requires human verification (concurrent race logic — sequential tests pass but concurrent behavior requires load testing to confirm)
+**Files modified:** `packages/core/migrations/0014_regrant_insert_raw_events.sql` (new), meta `_journal.json` + `0014_snapshot.json`, `migration-hashes.json`, `packages/core/tests/schema/post-transaction.integration.test.ts`, `packages/core/tests/schema/revoke.integration.test.ts`
+**Commit:** `c4c2c15`
+**Decision:** User-confirmed direction — re-grant via new migration (postings stays revoked).
+**Applied fix:** New migration `0014_regrant_insert_raw_events.sql` issuing `GRANT INSERT ON TABLE raw_events TO aprumo_app`, with header referencing CLAUDE.md role spec, Invariant 4, and ADR-003 (webhook exact-once = plain INSERT into raw_events + pg-boss enqueue in the same Postgres tx, executed as aprumo_app). INSERT on `postings` remains revoked (sole write path = `post_transaction` SECURITY DEFINER — correct). Updated the now-wrong test in `post-transaction.integration.test.ts` (was asserting 42501 on raw_events INSERT) to expect success. Added an `INSERT privilege enforcement` describe block in `revoke.integration.test.ts` (resolves WR-03).
+**Status:** fixed — requires human verification (privilege change; integration tests need a running container to confirm).
 
 ---
 
-### WR-01: `coverage-gate` CI job lacks `TESTCONTAINERS_RYUK_DISABLED=true` and has no `needs:` dependency
+### CR-02: check_double_entry_balance() missing SET search_path — search-path injection at COMMIT
 
-**Files modified:** `.github/workflows/ci.yml`
-**Commit:** 47161f6
-**Applied fix:** Added `needs: [lint, typecheck, build]` to the `coverage-gate` job so it only runs after prerequisite checks pass. Added `TESTCONTAINERS_RYUK_DISABLED: "true"` and `DATABASE_URL: ""` env vars to the `Run tests with coverage` step, matching the existing `integration-test` job's configuration.
-
----
-
-### WR-02: `reset.ts` URL regex is fragile for PostgreSQL connection strings with `/` in credentials
-
-**Files modified:** `packages/core/src/db/reset.ts`
-**Commit:** 1f0b05e
-**Applied fix:** Replaced the fragile `appDbUrl.replace(/\/[^/?]+(\?.*)?$/, "/postgres")` regex with `new URL(appDbUrl); parsed.pathname = "/postgres"; parsed.toString()`. The `URL` class correctly parses the URL structure regardless of special characters in the password portion. `URL` is a Node.js global, no additional import required.
+**Files modified:** `packages/core/migrations/0015_set_search_path_double_entry.sql` (new), meta `_journal.json` + `0015_snapshot.json`, `migration-hashes.json`
+**Commit:** `73c87c3`
+**Applied fix:** New migration CREATE OR REPLACEs `check_double_entry_balance()` adding `SET search_path = public`, matching `post_transaction` / `audit_row_change`. Closes the search-path redirection vector on the DEFERRABLE INITIALLY DEFERRED trigger that fires in the caller's session at COMMIT (protects Invariant 2, double-entry SUM=0).
+**Status:** fixed — requires human verification (logic/security fix; container needed).
 
 ---
 
-### WR-03: `account_balance.last_posting_id` has no FK constraint to `postings.id`
+### WR-01: duplicate globalSetup starts two testcontainer PG instances
 
-**Files modified:** `packages/core/src/db/schema.ts`, `packages/core/migrations/0009_account_balance_last_posting_fk.sql`, `packages/core/migrations/meta/_journal.json`, `packages/core/migrations/meta/0009_snapshot.json`, `packages/core/migrations/migration-hashes.json`
-**Commit:** 8bd92da
-**Applied fix:** Added `.references(() => postings.id)` to `last_posting_id` in the Drizzle schema. Created migration `0009_account_balance_last_posting_fk.sql` which adds the FK using `NOT VALID` so existing NULL rows are not rejected and the constraint is enforced only on future writes. The Drizzle snapshot for 0009 reflects the new FK in `account_balance.foreignKeys`. `VALIDATE CONSTRAINT` can be run when the balance worker is implemented.
+**Files modified:** `vitest.config.ts` (root)
+**Commit:** `b0a83c9`
+**Applied fix:** Removed the root `globalSetup` registration. The per-package `packages/core/vitest.config.ts` declaration is now the single source of truth — one PG container, deterministic pgUri.
 
 ---
 
-### WR-04: `splitMigrationStatements` dollar-quote parser does not handle named dollar-quotes (`$tag$`)
+### WR-02: outbound_events_audit orphaned (no writes) after 0011 trigger drop
+
+**Files modified:** `packages/core/src/db/schema.ts`
+**Commit:** `b382dc2`
+**Applied fix:** Added JSDoc to `outboundEventsAudit` documenting it as intentionally unpopulated (audit trigger dropped by immutable migration 0011), the Phase 7+ TTL rationale, and that CLAUDE.md Invariant 6 applies to mutable config tables. No schema change — the divergence is now documented rather than silent.
+
+---
+
+### WR-03: revoke test gap — no postings INSERT-denied / raw_events INSERT-allowed coverage
+
+**Files modified:** `packages/core/tests/schema/revoke.integration.test.ts`
+**Commit:** `c4c2c15` (atomic with CR-01)
+**Applied fix:** New `INSERT privilege enforcement` describe block covering the full INSERT model: postings INSERT → 42501 (denied), raw_events INSERT → succeeds (granted by 0014).
+**Status:** fixed — requires human verification (container needed).
+
+---
+
+### IN-01: readWithRetry JSDoc says "3 retries" but loop does 10 attempts
 
 **Files modified:** `packages/core/tests/helpers/applyMigrationsToSchema.ts`
-**Commit:** 6b4ed5f
-**Applied fix:** Replaced the simple `$$` toggle with a tag-aware parser. When a `$` is encountered outside a comment, the parser now finds the closing `$` to extract the full tag (e.g., `$function$`). If not in dollar-quote mode, it enters only when the tag matches `^\$[A-Za-z0-9_]*\$$` (PostgreSQL rule). If in dollar-quote mode, it exits only when the identical closing tag is found. This prevents premature exit when `$$` appears inside a `$function$...$function$` body. Added `currentDollarTag` state variable to track the opening delimiter.
+**Commit:** `98d95b4`
+**Applied fix:** JSDoc corrected to "up to 10 attempts (9 retries)" with worst-case timing note (~3s).
 
 ---
 
-### IN-01: `console.log` / `console.error` in CLI scripts
+### IN-02: drift gate misses orphaned hash entries (hash present, no journal entry)
 
-**Files modified:** `packages/core/src/db/migrate.ts`, `packages/core/src/db/reset.ts`, `packages/core/src/db/seed.ts`
-**Commit:** 18cd6c2
-**Applied fix:** Replaced all `console.log(...)` calls with `process.stdout.write("...\n")` and all `console.error(...)` calls with `process.stderr.write(\`...\n\`)` in the three CLI entry-point scripts. This satisfies the CLAUDE.md structured-logging convention for published tooling scripts.
-
----
-
-### IN-02: Test container pinned to `postgres:18-alpine` instead of documented minimum `postgres:16-alpine`
-
-**Files modified:** `packages/core/tests/setup/container.ts`
-**Commit:** 05532ae
-**Applied fix:** Changed `PG_IMAGE` from `postgres:18-alpine@sha256:96d56f7f...` to `postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229`. The digest was obtained by pulling the image locally (`docker pull postgres:16-alpine`) and inspecting the repo digest. This ensures the test suite validates against the documented minimum supported Postgres version.
+**Files modified:** `scripts/check-migration-drift.mjs`
+**Commit:** `3dcb146`
+**Applied fix:** Added reverse hash check — flags entries in `migration-hashes.json` with no corresponding `_journal.json` entry. Closes the silent-pass gap when a journal entry is removed but its hash remains.
 
 ---
 
-### IN-03: `migration-drift.test.ts` uses bare `__dirname` not available in native ESM
+## Skipped Issues
 
-**Files modified:** `packages/core/tests/infra/migration-drift.test.ts`
-**Commit:** 7985831
-**Applied fix:** Added `import { dirname } from "node:path"` and `import { fileURLToPath } from "node:url"`, then declared `const __dirname = dirname(fileURLToPath(import.meta.url))` before the `REPO_ROOT` computation. This matches the pattern used by all other test helpers in the project (`applyMigrationsToSchema.ts`, `createTestDb.ts`, `migrate.ts`, and the `.mjs` scripts).
+### IN-03: misleading comment in 0013 (explicit GRANT does not survive REVOKE ON ALL FUNCTIONS)
 
----
-
-_Fixed: 2026-05-23T16:30:00Z_
-_Fixer: Claude (gsd-code-fixer)_
-_Iteration: 1_
+**Reason:** The comment lives only inside immutable migration `0013_revoke_execute_all_functions.sql`. Editing it would trip the drift gate. No runtime impact — the required re-grant is already present. Document the correct PostgreSQL behavior in a mutable location (e.g. ADR or migration README) if desired.
 
 ---
-
-# Phase 02 Plan 14 Addendum: Code Review Fix Report (Iteration 2)
-
----
-fixed_at: 2026-05-28T21:45:00Z
-review_path: .planning/phases/02-schema-foundation-db-tooling/02-REVIEW.md
-iteration: 2
-findings_in_scope: 3
-fixed: 3
-skipped: 0
-status: all_fixed
----
-
-**Fixed at:** 2026-05-28T21:45:00Z
-**Source review:** `.planning/phases/02-schema-foundation-db-tooling/02-REVIEW.md` (addendum — plan 02-14 delta)
-**Iteration:** 2
-
-**Summary:**
-- Findings in scope: 3 (1 Critical, 2 Warning; Info skipped per scope)
-- Fixed: 3
-- Skipped: 0
-
-## Fixed Issues (Iteration 2)
-
-### CR-01: teardown() destroys container when APRUMO_TEST_REUSE=1 — withReuse() was silently inoperative
-
-**Files modified:** `packages/core/tests/globalSetup.ts`
-**Commit:** `d269a69`
-**Applied fix:** Added module-scope `let useReuseGlobal = false` flag. In `setup()`, `useReuseGlobal = useReuse` is set immediately after reading the env var. In `teardown()`, the `container.stop()` call is now guarded by `!useReuseGlobal` — reuse-mode containers are intentionally long-lived and are not stopped between runs. Non-reuse containers are stopped as before.
-
-### WR-01: Outer catch block conflated Docker-unavailability with role-creation errors — misleading diagnostic
-
-**Files modified:** `packages/core/tests/globalSetup.ts`
-**Commit:** `d269a69` (combined with CR-01 — same file, same commit)
-**Applied fix:** Split the single outer `try/catch` into two independent `try/catch` blocks. The first wraps only `builder.start()` and returns early (with `project.provide("pgUri", "")`) on Docker failure. The role-creation block now runs after the container-start scope closes; `adminSql.end()` errors cannot escape to the Docker-unavailability path. Each failure mode is now independently diagnosed.
-
-### WR-02: RACE-01 was a vacuous test — passed with zero assertions when race did not trigger
-
-**Files modified:** `packages/core/tests/helpers/globalSetup.race.test.ts`
-**Commit:** `ac5abbe`
-**Applied fix:** Changed `it(...)` to `it.skip(...)` for RACE-01 and appended `(documentation — non-deterministic, see RACE-02 for the regression gate)` to the test name. Test body is preserved verbatim for documentation value. RACE-02 remains active as the real regression gate confirming roles are pre-created before any worker fork.
 
 ## Verification
 
-- `pnpm --filter @aprumo/core typecheck`: exit 0 (no type errors)
-- `pnpm --filter @aprumo/core test --run`: exit 0 (65 tests passed, 10 test files)
+- `pnpm --filter @aprumo/core typecheck` — clean
+- `node scripts/check-migration-drift.mjs` — passed (16 migrations)
+- Integration tests (CR-01, CR-02, WR-03) need a live Postgres container: `pnpm --filter @aprumo/core test`
 
----
-
-_Fixed: 2026-05-28T21:45:00Z_
-_Fixer: Claude (gsd-code-fixer)_
-_Iteration: 2_
+_Fixed: 2026-06-02T23:32:35Z_
+_Fixer: Claude (gsd-code-fixer, deep pass) + orchestrator reconciliation_
+_Iteration: 1_
