@@ -11,8 +11,8 @@ regex = '''-----BEGIN EC PRIVATE KEY-----'''
 tags = ["starkbank", "key", "EC"]
 
   [[rules.allowlists]]
-  description = "Allow PEM header literal in test fixtures, example files, and test files (T-1-01: dummy headers, not real keys)"
-  paths = ['''__fixtures__/''', '''\.example$''', '''\.test\.ts$''']
+  description = "Allow dummy PEM header only in the secret-scan fixture test and example files (T-1-01)"
+  paths = ['''__fixtures__/''', '''\.example$''', '''tests/ci/secret-scan\.test\.ts$''']
 
 [[rules]]
 id = "generic-env-secret"
@@ -21,8 +21,8 @@ regex = '''(?i)(?:SECRET|API_KEY|PRIVATE_KEY)\s*=\s*['"]?[a-zA-Z0-9+/]{20,}['"]?
 tags = ["env", "secret"]
 
   [[rules.allowlists]]
-  description = "Allow in test fixtures, example files, and test files"
-  paths = ['''__fixtures__/''', '''\.example$''', '''\.test\.ts$''']
+  description = "Allow in test fixtures and example files (T-1-01)"
+  paths = ['''__fixtures__/''', '''\.example$''', '''tests/ci/secret-scan\.test\.ts$''']
 
 [allowlist]
 description = "Global allowlist — prevent self-detection"

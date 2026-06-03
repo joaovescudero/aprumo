@@ -60,9 +60,9 @@ describe("INF-06: Secret scanning (gitleaks)", () => {
     ).toBe(true);
   });
 
-  it("gitleaks detects EC private key header in a fixture file", () => {
+  it("gitleaks detects EC private key header in a fixture file", (ctx) => {
     if (!gitleaksAvailable) {
-      console.warn("Skipping: gitleaks not installed — run: brew install gitleaks");
+      ctx.skip();
       return;
     }
 
@@ -94,9 +94,9 @@ describe("INF-06: Secret scanning (gitleaks)", () => {
     ).not.toBe(0);
   });
 
-  it("gitleaks detects SECRET= assignment in a fixture file", () => {
+  it("gitleaks detects SECRET= assignment in a fixture file", (ctx) => {
     if (!gitleaksAvailable) {
-      console.warn("Skipping: gitleaks not installed — run: brew install gitleaks");
+      ctx.skip();
       return;
     }
 

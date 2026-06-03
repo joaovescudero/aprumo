@@ -31,7 +31,7 @@
 ### Infrastructure (INF) — Phase 1
 
 - [ ] **INF-01**: `pnpm-workspace.yaml` + `package.json` raiz com pacotes `@aprumo/core`, `@aprumo/connector-base`, `@aprumo/connector-starkbank`, `@aprumo/webhooks`
-- [ ] **INF-02**: `tsconfig.base.json` com `strict: true`, `noUncheckedIndexedAccess: true`, target Node 22+
+- [x] **INF-02**: `tsconfig.base.json` com `strict: true`, `noUncheckedIndexedAccess: true`, target Node 22+
 - [ ] **INF-03**: Biome configurado para lint + format em todos os pacotes (Biome 2.4+)
 - [ ] **INF-04**: Vitest configurado com coverage v8, gate 90% LoC em `@aprumo/core`, 80% nos demais
 - [x] **INF-05**: `commitlint` + Conventional Commits em pre-commit hook
@@ -43,19 +43,19 @@
 
 ### Core Ledger API (API) — Phase 3
 
-- [ ] **API-01**: Fastify 5+ configurado com `coerceTypes: false`, JSON Schema validation, `@fastify/swagger`
-- [ ] **API-02**: Serializer custom de BigInt → JSON string em todas as respostas (`amount_cents`, IDs); `JSON.stringify(bigint)` nunca permitido cru
-- [ ] **API-03**: `POST /transactions` aceita postings + `Idempotency-Key` header; chama `post_transaction()`; retorna 201 com transaction + postings persistidos
-- [ ] **API-04**: `POST /transactions` rejeita postings que não somam zero por transaction_id (erro 422 da CONSTRAINT TRIGGER mapeado)
-- [ ] **API-05**: Idempotência: `Idempotency-Key` duplicada retorna 200 com tx original (UNIQUE + ON CONFLICT pattern), nunca reprocessa
-- [ ] **API-06**: `GET /transactions/:id` retorna transaction + postings ordenados
-- [ ] **API-07**: `POST /accounts` cria conta com `type` (asset/liability/revenue/expense/equity) + `metadata`
-- [ ] **API-08**: `GET /accounts/:id` retorna metadata + saldo materializado de `account_balance`
-- [ ] **API-09**: `GET /accounts/:id/postings?cursor=&limit=` retorna extrato paginado por `posting.id` desc
-- [ ] **API-10**: `withRetryOnSerializationFailure` wrapper: captura SQLSTATE 40001, retry até 3x com backoff exponencial; envolve toda `db.transaction()`
-- [ ] **API-11**: Error handler global Fastify: 40001 esgotado → 503, validation → 422, idempotency conflict → 200 (com tx original)
-- [ ] **API-12**: `GET /health` (liveness + readiness, inclui check de PG)
-- [ ] **API-13**: OpenAPI spec gerado automaticamente, com `amount_cents` documentado como JSON string
+- [x] **API-01**: Fastify 5+ configurado com `coerceTypes: false`, JSON Schema validation, `@fastify/swagger`
+- [x] **API-02**: Serializer custom de BigInt → JSON string em todas as respostas (`amount_cents`, IDs); `JSON.stringify(bigint)` nunca permitido cru
+- [x] **API-03**: `POST /transactions` aceita postings + `Idempotency-Key` header; chama `post_transaction()`; retorna 201 com transaction + postings persistidos
+- [x] **API-04**: `POST /transactions` rejeita postings que não somam zero por transaction_id (erro 422 da CONSTRAINT TRIGGER mapeado)
+- [x] **API-05**: Idempotência: `Idempotency-Key` duplicada retorna 200 com tx original (UNIQUE + ON CONFLICT pattern), nunca reprocessa
+- [x] **API-06**: `GET /transactions/:id` retorna transaction + postings ordenados
+- [x] **API-07**: `POST /accounts` cria conta com `type` (asset/liability/revenue/expense/equity) + `metadata`
+- [x] **API-08**: `GET /accounts/:id` retorna metadata + saldo materializado de `account_balance`
+- [x] **API-09**: `GET /accounts/:id/postings?cursor=&limit=` retorna extrato paginado por `posting.id` desc
+- [x] **API-10**: `withRetryOnSerializationFailure` wrapper: captura SQLSTATE 40001, retry até 3x com backoff exponencial; envolve toda `db.transaction()`
+- [x] **API-11**: Error handler global Fastify: 40001 esgotado → 503, validation → 422, idempotency conflict → 200 (com tx original)
+- [x] **API-12**: `GET /health` (liveness + readiness, inclui check de PG)
+- [x] **API-13**: OpenAPI spec gerado automaticamente, com `amount_cents` documentado como JSON string
 
 ### Balance Worker (BAL) — Phase 4
 
@@ -187,13 +187,13 @@ Mapped by gsd-roadmapper on 2026-05-18. All 104 v1 requirements mapped to phases
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INF-01 | Phase 1 | Pending |
-| INF-02 | Phase 1 | Pending |
-| INF-03 | Phase 1 | Pending |
-| INF-04 | Phase 1 | Pending |
+| INF-01 | Phase 1 | Complete |
+| INF-02 | Phase 1 | Complete |
+| INF-03 | Phase 1 | Complete |
+| INF-04 | Phase 1 | Complete |
 | INF-05 | Phase 1 | Complete |
 | INF-06 | Phase 1 | Complete |
-| INF-07 | Phase 1 | Pending |
+| INF-07 | Phase 1 | Complete |
 | INF-08 | Phase 1 | Complete |
 | INF-09 | Phase 1 | Complete |
 | INF-10 | Phase 1 | Complete |
@@ -215,19 +215,19 @@ Mapped by gsd-roadmapper on 2026-05-18. All 104 v1 requirements mapped to phases
 | FND-16 | Phase 2 | Complete |
 | FND-17 | Phase 2 | Complete |
 | FND-18 | Phase 2 | Complete |
-| API-01 | Phase 3 | Pending |
-| API-02 | Phase 3 | Pending |
-| API-03 | Phase 3 | Pending |
-| API-04 | Phase 3 | Pending |
-| API-05 | Phase 3 | Pending |
-| API-06 | Phase 3 | Pending |
-| API-07 | Phase 3 | Pending |
-| API-08 | Phase 3 | Pending |
-| API-09 | Phase 3 | Pending |
-| API-10 | Phase 3 | Pending |
-| API-11 | Phase 3 | Pending |
-| API-12 | Phase 3 | Pending |
-| API-13 | Phase 3 | Pending |
+| API-01 | Phase 3 | Complete |
+| API-02 | Phase 3 | Complete |
+| API-03 | Phase 3 | Complete |
+| API-04 | Phase 3 | Complete |
+| API-05 | Phase 3 | Complete |
+| API-06 | Phase 3 | Complete |
+| API-07 | Phase 3 | Complete |
+| API-08 | Phase 3 | Complete |
+| API-09 | Phase 3 | Complete |
+| API-10 | Phase 3 | Complete |
+| API-11 | Phase 3 | Complete |
+| API-12 | Phase 3 | Complete |
+| API-13 | Phase 3 | Complete |
 | BAL-01 | Phase 4 | Pending |
 | BAL-02 | Phase 4 | Pending |
 | BAL-03 | Phase 4 | Pending |
@@ -293,6 +293,7 @@ Mapped by gsd-roadmapper on 2026-05-18. All 104 v1 requirements mapped to phases
 | DOC-10 | Phase 9 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 104 total (FND:18, INF:10, API:13, BAL:8, CNB:7, SBC:11, WHI:11, WHO:11, OBS:5, DOC:10)
 - Mapped to phases: 104/104 (100%) ✓
 - Unmapped: 0 ✓

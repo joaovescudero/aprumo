@@ -15,7 +15,7 @@ Security and tooling discipline come first (Phase 1) because the repo is public 
 
 - [x] **Phase 1: Monorepo Scaffold + CI + Dev Security** - pnpm workspace, TypeScript, Biome, Vitest, CI pipeline, secret scanning, and `.gitignore` — before any key or credential is ever generated (completed 2026-05-22)
 - [x] **Phase 2: Schema Foundation + DB Tooling** - Drizzle migrations for all ledger tables, PG roles, REVOKE enforcement, deferred double-entry constraint trigger, testcontainers setup, and ADRs (completed 2026-05-22)
-- [ ] **Phase 3: Core Ledger API** - Fastify REST endpoints for transactions/accounts/postings, `post_transaction` function, idempotency, serialization retry, BigInt serializer, and error handling
+- [x] **Phase 3: Core Ledger API** - Fastify REST endpoints for transactions/accounts/postings, `post_transaction` function, idempotency, serialization retry, BigInt serializer, and error handling (completed 2026-05-30)
 - [ ] **Phase 4: Balance Worker + Reconciliation** - pg-boss queues, incremental balance worker (cursor + FOR UPDATE), daily reconciliation job, and lag Prometheus metric
 - [ ] **Phase 5: Connector Base Interface** - `LedgerConnector` interface, canonical types, HMAC helpers, contract test suite export, FakeConnector, and dependency graph CI check
 - [ ] **Phase 6: Starkbank Connector** - Starkbank SDK integration with ECDSA webhook parsing, 6-method implementation, MSW mocks, contract tests green, and Starkbank event taxonomy spike
@@ -125,7 +125,34 @@ Plans:
   4. `withRetryOnSerializationFailure` wrapper retries the entire `db.transaction()` call (not just the failing query) on SQLSTATE 40001 — verified by mocking `serialization_failure` on first attempt and asserting success on second
   5. `GET /health` returns 200 with PG connectivity check; `GET /docs` serves OpenAPI UI; `amount_cents` documented as JSON string in the spec
 
-**Plans**: TBD
+**Plans**: 7 plans
+Plans:
+
+**Wave 1** *(parallel — no dependencies)*
+
+- [x] 03-01-PLAN.md — Package install: fastify + TypeBox + swagger ecosystem into @aprumo/core (human checkpoint for [ASSUMED] packages)
+- [x] 03-02-PLAN.md — Migration 0010: add postings.created_at for cursor pagination + [BLOCKING] pnpm db:migrate apply
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [x] 03-03-PLAN.md — TDD: withRetryOnSerializationFailure + pgErrorHandler + app-errors (pure unit, no DB)
+
+**Wave 3** *(blocked on Wave 2; 03-04 depends on 03-03 for pgErrorHandler import)*
+
+- [x] 03-04-PLAN.md — TDD RED/GREEN: TypeBox schemas + BigInt serializer + server.ts factory (imports pgErrorHandler from 03-03)
+
+**Wave 4** *(blocked on Wave 3 + 03-02)*
+
+- [x] 03-05-PLAN.md — TDD: POST /v1/transactions + GET /v1/transactions/:id (integration, testcontainers PG; includes route-level 40001 retry test per SC#4)
+
+**Wave 5** *(blocked on Wave 4)*
+
+- [x] 03-06-PLAN.md — TDD: POST /v1/accounts + GET /v1/accounts/:id + GET /v1/accounts/:id/postings (integration)
+
+**Wave 6** *(blocked on Wave 5)*
+
+- [x] 03-07-PLAN.md — TDD RED/GREEN: GET /health + main.ts entrypoint + coverage gate ≥90% LoC + Swagger UI checkpoint
+
 **UI hint**: no
 
 ### Phase 4: Balance Worker + Reconciliation
@@ -229,9 +256,9 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Monorepo Scaffold + CI + Dev Security | 7/7 | Complete   | 2026-05-22 |
-| 2. Schema Foundation + DB Tooling | 15/15 | Complete   | 2026-06-02 |
-| 3. Core Ledger API | 0/TBD | Not started | - |
+| 1. Monorepo Scaffold + CI + Dev Security | 8/8 | Complete   | 2026-06-02 |
+| 2. Schema Foundation + DB Tooling | 14/14 | Complete   | 2026-05-25 |
+| 3. Core Ledger API | 7/7 | Complete   | 2026-05-30 |
 | 4. Balance Worker + Reconciliation | 0/TBD | Not started | - |
 | 5. Connector Base Interface | 0/TBD | Not started | - |
 | 6. Starkbank Connector | 0/TBD | Not started | - |

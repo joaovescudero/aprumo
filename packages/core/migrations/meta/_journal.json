@@ -113,6 +113,13 @@
       "when": 1780500060000,
       "tag": "0015_set_search_path_double_entry",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1780500120000,
+      "tag": "0016_postings_created_at",
+      "breakpoints": true
     }
   ]
 }

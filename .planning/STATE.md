@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
-status: "Phase 02 shipped -- PR #4"
-stopped_at: Completed 02-14-PLAN.md
-last_updated: "2026-06-02T23:47:43.297Z"
-last_activity: "2026-06-02 -- Phase 02 shipped (PR #4)"
+status: executing
+stopped_at: Phase 3 Plan 04 complete — TypeBox schemas, BigInt serializer, server factory
+last_updated: "2026-06-02T14:52:44.753Z"
+last_activity: 2026-06-02 -- Phase 01 execution started
 progress:
   total_phases: 9
-  completed_phases: 2
-  total_plans: 22
-  completed_plans: 22
-  percent: 22
+  completed_phases: 3
+  total_plans: 29
+  completed_plans: 29
+  percent: 33
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-18)
 
 **Core value:** Ledger imutável, ACID estrito, double-entry, agnóstico a PSP — fonte da verdade contábil sobre tudo que se movimenta nos PSPs, sem custodiar dinheiro.
-**Current focus:** Phase 02 complete — ready for Phase 03
+**Current focus:** Phase 01 — monorepo-scaffold-ci-dev-security
 
 ## Current Position
 
-Phase: 02 (schema-foundation-db-tooling) — COMPLETE
-Plan: 15 of 15
-Status: Phase 02 shipped -- PR #4
-Last activity: 2026-06-02 -- Phase 02 shipped (PR #4)
+Phase: 01 (monorepo-scaffold-ci-dev-security) — EXECUTING
+Plan: 2 of 8
+Status: Ready to execute
+Last activity: 2026-06-02 -- Phase 01 execution started
 
 Progress: [██████████] 100%
 
@@ -36,7 +36,7 @@ Progress: [██████████] 100%
 
 **Velocity:**
 
-- Total plans completed: 24
+- Total plans completed: 31
 - Average duration: 10m 19s
 - Total execution time: 0.52 hours
 
@@ -46,6 +46,7 @@ Progress: [██████████] 100%
 |-------|-------|-------|----------|
 | 01 | 7 | - | - |
 | 02 | 14 | - | - |
+| 03 | 7 | - | - |
 
 **Recent Trend:**
 
@@ -69,6 +70,13 @@ Progress: [██████████] 100%
 | Phase 02-schema-foundation-db-tooling P12 | 180 | 2 tasks | 4 files |
 | Phase 02-schema-foundation-db-tooling P13 | 97s | 2 tasks | 1 files |
 | Phase 02-schema-foundation-db-tooling P14 | 12min | 3 tasks | 2 files |
+| Phase 03-core-ledger-api P01 | 6m 5s | 2 tasks | 2 files |
+| Phase 03 P02 | 138s | 2 tasks | 4 files |
+| Phase 03 P03 | 367 | 3 tasks | 5 files |
+| Phase 03 P04 | 8m 5s | 3 tasks | 6 files |
+| Phase 03 P05 | 25m | 2 tasks | 3 files |
+| Phase 03 P07 | 350 | 4 tasks | 5 files |
+| Phase 01 P07 | 112s | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -110,6 +118,9 @@ Recent decisions affecting current work:
 - [Phase ?]: D-40 digest pin
 - [Phase 02 P14]: D-50: globalSetup pre-creates cluster-global roles with PL/pgSQL EXCEPTION duplicate_object (not IF NOT EXISTS) — atomic idempotency for cold and reuse-mode containers
 - [Phase 02 P14]: D-51: RACE-02 targets shared inject('pgUri') container to test actual fix boundary; RACE-01 targets ephemeral container to document raw race without savepoint masking
+- [Phase 03 P01]: @fastify/type-provider-typebox downgraded to 5.2.0 — v6.1.0 requires standalone typebox@1.x peer, incompatible with @sinclair/typebox@0.34.49; v5.2.0 supports @sinclair/typebox >=0.26 <=0.34
+- [Phase 03 P04]: Two-layer BigInt serializer: setSerializerCompiler alone does not apply to schema-less routes in Fastify 5 — added setReplySerializer as universal fallback
+- [Phase 03 P04]: AnyDrizzleDb = PostgresJsDatabase | NodePgDatabase union exported from server.ts; all route plugins import this type
 
 ### Pending Todos
 
@@ -135,6 +146,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-06-02T17:37:40.712Z
-Stopped at: Completed 02-14-PLAN.md
+Last session: 2026-06-02T14:52:44.749Z
+Stopped at: Phase 3 Plan 04 complete — TypeBox schemas, BigInt serializer, server factory
 Resume file: None

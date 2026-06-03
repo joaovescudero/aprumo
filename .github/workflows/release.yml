@@ -10,18 +10,25 @@ on:
 # Original D-23a (npm OIDC) and D-23b (npm Trusted Publisher) superseded by this decision.
 # Migration to npm registry may be revisited in a future milestone.
 
-permissions:
-  id-token: write    # provenance attestation
-  contents: write    # push version commits + tags
-  pull-requests: write  # create "Version Packages" PR via changesets/action
-  packages: write    # publish to GitHub Packages
+# IMPORTANT: This workflow runs concurrently with ci.yml on push to main.
+# To prevent publishing from untested code, branch protection for `main` MUST require
+# all CI status checks (lint, typecheck, build, test, coverage-gate, integration-test)
+# to pass before any merge. Configure in: Settings → Branches → Branch protection rules.
+# Without branch protection, a push to main can trigger this release workflow before
+# ci.yml completes, potentially publishing from code that has not passed CI.
+permissions: {}  # default: no permissions for any job unless explicitly granted below
 
 jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write       # provenance attestation
+      contents: write       # push version commits + tags
+      pull-requests: write  # create "Version Packages" PR via changesets/action
+      packages: write       # publish to GitHub Packages
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           fetch-depth: 0
           # fetch-depth: 0 ensures changesets/action can read git history for changelog
@@ -30,7 +37,7 @@ jobs:
 
       # Configure GitHub Packages auth. registry-url + scope write the
       # //npm.pkg.github.com/:_authToken line into ~/.npmrc that npm publish reads.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version-file: .nvmrc
           registry-url: 'https://npm.pkg.github.com'
@@ -40,7 +47,7 @@ jobs:
         run: pnpm build
 
       - name: Create Version PR or Publish
-        uses: changesets/action@v1
+        uses: changesets/action@c8bada60c408975afd1a20b3db81d6eee6789308  # v1.4.9
         with:
           # Creates "Version Packages" PR automatically when changesets are present.
           # The publish command only fires when the Version Packages PR is merged.
